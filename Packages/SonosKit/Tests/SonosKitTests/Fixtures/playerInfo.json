@@ -1,0 +1,171 @@
+{
+  "_objectType": "discoveryInfo",
+  "device": {
+    "_objectType": "deviceInfo",
+    "id": "RINCON_347E5C04E98101400",
+    "serialNumber": "34-7E-5C-04-E9-81:G",
+    "deviceId": "347E5C04E981",
+    "model": "S16",
+    "modelDisplayName": "Amp",
+    "color": "Black",
+    "capabilities": [
+      "PLAYBACK",
+      "CLOUD",
+      "HT_PLAYBACK",
+      "HT_POWER_STATE",
+      "AIRPLAY",
+      "LINE_IN",
+      "AUDIO_CLIP",
+      "SPEAKER_DETECTION",
+      "HDMI",
+      "IR_CONTROL"
+    ],
+    "deviceFeatures": [
+      {
+        "_objectType": "feature",
+        "name": "SUB_OUT"
+      },
+      {
+        "_objectType": "feature",
+        "name": "HDMI_ARC"
+      },
+      {
+        "_objectType": "feature",
+        "name": "RCA_LINE_IN"
+      },
+      {
+        "_objectType": "feature",
+        "name": "SPEAKER_OUT"
+      },
+      {
+        "_objectType": "feature",
+        "name": "IR_SENSOR"
+      },
+      {
+        "_objectType": "feature",
+        "name": "BLE"
+      },
+      {
+        "_objectType": "feature",
+        "name": "HT_SOURCE"
+      },
+      {
+        "_objectType": "feature",
+        "name": "CAPTOUCH_ABC"
+      },
+      {
+        "_objectType": "feature",
+        "name": "WIFI"
+      },
+      {
+        "_objectType": "feature",
+        "name": "ETHERNET"
+      },
+      {
+        "_objectType": "feature",
+        "name": "2PORT_SWITCH"
+      },
+      {
+        "_objectType": "feature",
+        "name": "WIFI_2GHZ"
+      },
+      {
+        "_objectType": "feature",
+        "name": "WIFI_5GHZ"
+      },
+      {
+        "_objectType": "feature",
+        "name": "CONCURRENT_2GHZ_5GHZ"
+      },
+      {
+        "_objectType": "feature",
+        "name": "BUTTON_JOIN"
+      },
+      {
+        "_objectType": "feature",
+        "name": "DETECT_SPEAKERS"
+      },
+      {
+        "_objectType": "feature",
+        "name": "EQ_BALANCE"
+      },
+      {
+        "_objectType": "feature",
+        "name": "TUNABLE_CROSSOVER"
+      },
+      {
+        "_objectType": "feature",
+        "name": "EQ_COLLECTION"
+      },
+      {
+        "_objectType": "feature",
+        "name": "CONTROLLER_CFG_SATELLITE"
+      },
+      {
+        "_objectType": "feature",
+        "name": "WIRELESS_SONOSNET"
+      },
+      {
+        "_objectType": "feature",
+        "name": "ROOM_DETECTION_CHIRP"
+      },
+      {
+        "_objectType": "feature",
+        "name": "LED_STATUS"
+      },
+      {
+        "_objectType": "feature",
+        "name": "DUAL_MONO"
+      },
+      {
+        "_objectType": "feature",
+        "name": "WIDEVINE"
+      },
+      {
+        "_objectType": "feature",
+        "name": "ATE"
+      },
+      {
+        "_objectType": "feature",
+        "name": "HLS_V7"
+      },
+      {
+        "_objectType": "feature",
+        "name": "SUPPORTS_HEADPHONE_LAN_PLAYBACK"
+      }
+    ],
+    "apiVersion": "1.53.1",
+    "minApiVersion": "1.1.0",
+    "versions": {
+      "_objectType": "sdkVersions",
+      "controlAPI": [
+        "3.6.0",
+        "1.53.1"
+      ],
+      "trueplaySDK": [
+        "6"
+      ],
+      "audioTxProtocol": [
+        3
+      ],
+      "htAudioTxProtocol": [
+        7
+      ]
+    },
+    "name": "Stereo",
+    "websocketUrl": "wss://192.168.1.105:1443/websocket/api",
+    "softwareVersion": "96.1-79270",
+    "hwVersion": "1.24.1.12-2.2",
+    "swGen": 2,
+    "quarantineReasons": []
+  },
+  "householdId": "Sonos_DzRiRrFKF13cB3mZaqqRgpvjhm.jNjF8gvtxNWbfhVMFin7",
+  "locationId": "lc_b72df4e3ae75431c8fb7d892bf2c67db",
+  "playerId": "RINCON_347E5C04E98101400",
+  "deviceId": "347E5C04E981",
+  "groupId": "RINCON_542A1B73A25001400:620674909",
+  "websocketUrl": "wss://192.168.1.105:1443/websocket/api",
+  "restUrl": "https://192.168.1.105:1443/api",
+  "allowGuestAccess": true,
+  "credentialTypeAllowed": "API_KEY"
+}

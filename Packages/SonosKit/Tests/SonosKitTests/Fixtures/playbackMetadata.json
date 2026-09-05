@@ -1,0 +1,96 @@
+{
+  "_objectType": "metadataStatus",
+  "container": {
+    "_objectType": "container",
+    "name": "R&B-mix",
+    "type": "playlist.spotify.connect",
+    "id": {
+      "_objectType": "universalMusicObjectId",
+      "serviceId": "9",
+      "objectId": "spotify:playlist:37i9dQZF1EQoqCH7BwIYb7",
+      "accountId": "sn_5"
+    },
+    "service": {
+      "_objectType": "service",
+      "name": "Spotify",
+      "id": "9",
+      "images": []
+    },
+    "images": []
+  },
+  "currentItem": {
+    "_objectType": "queueItem",
+    "track": {
+      "_objectType": "track",
+      "type": "track",
+      "name": "Off the Wall",
+      "imageUrl": "https://i.scdn.co/image/ab67616d0000b2732b74bf21c7e4f56758610949",
+      "images": [
+        {
+          "_objectType": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b2732b74bf21c7e4f56758610949"
+        }
+      ],
+      "album": {
+        "_objectType": "album",
+        "name": "Off the Wall"
+      },
+      "artist": {
+        "_objectType": "artist",
+        "name": "Michael Jackson"
+      },
+      "id": {
+        "_objectType": "universalMusicObjectId",
+        "serviceId": "9",
+        "objectId": "spotify:track:3zYpRGnnoegSpt3SguSo3W",
+        "accountId": "sn_5"
+      },
+      "service": {
+        "_objectType": "service",
+        "name": "Spotify",
+        "id": "9",
+        "images": []
+      },
+      "durationMillis": 246000,
+      "quality": {
+        "_objectType": "trackQuality",
+        "bitDepth": 16,
+        "sampleRate": 44100,
+        "lossless": false,
+        "immersive": false
+      }
+    },
+    "policies": {
+      "_objectType": "playbackPolicy"
+    }
+  },
+  "nextItem": {
+    "_objectType": "queueItem",
+    "track": {
+      "_objectType": "track",
+      "type": "track",
+      "name": "End of Time",
+      "images": [],
+      "album": {
+        "_objectType": "album",
+        "name": "For Mary"
+      },
+      "artist": {
+        "_objectType": "artist",
+        "name": "Olive Jones"
+      },
+      "quality": {
+        "_objectType": "trackQuality"
+      }
+    },
+    "policies": {
+      "_objectType": "playbackPolicy"
+    }
+  },
+  "playbackSession": {
+    "_objectType": "directControl",
+    "clientId": "spotify.connect.adapter",
+    "isSuspended": false,
+    "accountId": ""
+  }
+}

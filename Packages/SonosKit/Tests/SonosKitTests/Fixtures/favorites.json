@@ -1,0 +1,42 @@
+{
+  "_objectType": "favoritesList",
+  "version": "RINCON_48A6B8194D2A01400:7",
+  "items": [
+    {
+      "_objectType": "favorite",
+      "id": "3",
+      "name": "P3",
+      "description": "Sveriges Radio",
+      "imageUrl": "https://static-cdn.sr.se/images/164/1adb95c9-cc4e-452f-b1ed-0602b3e15c46.jpg?preset=api-default-square",
+      "images": [
+        {
+          "_objectType": "image",
+          "url": "https://static-cdn.sr.se/images/164/1adb95c9-cc4e-452f-b1ed-0602b3e15c46.jpg?preset=api-default-square"
+        }
+      ],
+      "service": {
+        "_objectType": "service",
+        "name": "Sveriges Radio",
+        "id": "235",
+        "images": []
+      },
+      "resource": {
+        "_objectType": "contentResource",
+        "type": "STREAM",
+        "id": {
+          "_objectType": "universalMusicObjectId",
+          "serviceId": "235",
+          "objectId": "channel:164",
+          "accountId": "sn_2"
+        },
+        "name": "P3",
+        "explicit": false,
+        "playable": true,
+        "metadata": {
+          "_objectType": "contentMetadataBlob"
+        },
+        "images": []
+      }
+    }
+  ]
+}

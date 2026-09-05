@@ -1,0 +1,28 @@
+{
+  "_objectType": "playbackStatus",
+  "playbackState": "PLAYBACK_STATE_PLAYING",
+  "isDucking": false,
+  "positionMillis": 80000,
+  "previousPositionMillis": 0,
+  "playModes": {
+    "_objectType": "playMode",
+    "repeat": false,
+    "repeatOne": false,
+    "shuffle": false,
+    "crossfade": false
+  },
+  "availablePlaybackActions": {
+    "_objectType": "playbackAction",
+    "canPlay": true,
+    "canSkip": true,
+    "canSkipBack": true,
+    "canSkipToPrevious": true,
+    "canSeek": true,
+    "canPause": true,
+    "canStop": true,
+    "canRepeat": true,
+    "canRepeatOne": true,
+    "canCrossfade": false,
+    "canShuffle": true
+  }
+}
