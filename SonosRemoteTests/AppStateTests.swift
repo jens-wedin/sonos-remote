@@ -23,6 +23,17 @@ import SonosKit
         HouseholdSnapshot(status: .ready, groups: groups, players: [])
     }
 
+    @Test func orderedGroupsPutPlayingGroupsFirstThenAlphabetical() {
+        let appState = makeAppState()
+        appState.apply(snapshot([
+            group("Sovrum", .idle),
+            group("Stereo", .playing),
+            group("Elsas Sovrum", .paused),
+            group("Flyttbar", .buffering),
+        ]))
+        #expect(appState.orderedGroups.map(\.id) == ["Flyttbar", "Stereo", "Elsas Sovrum", "Sovrum"])
+    }
+
     @Test func firstSnapshotOpensPlayingGroup() {
         let appState = makeAppState()
         appState.apply(snapshot([group("a", .idle), group("b", .playing)]))

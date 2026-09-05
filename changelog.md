@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Changed
+- Rows are ordered with playing (or buffering) groups first, then the rest, each tier alphabetical, so the room that is making sound is always at the top of the panel.
+
 ### Fixed
 - The play/pause button was invisible: its circle used a hierarchical fill that resolved to the glyph colour. Both now use explicit label and window-background colours.
 - The PLAYING/PAUSED badge could wrap onto two lines in a closed row; it no longer wraps, and the closed-row slider is 130 pt wide to give the text room.

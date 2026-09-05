@@ -25,7 +25,7 @@ struct PanelView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(state.snapshot.groups) { group in
+                        ForEach(state.orderedGroups) { group in
                             Divider()
                             GroupRowView(group: group)
                                 .focused($focusedGroupID, equals: group.id)
@@ -56,7 +56,7 @@ struct PanelView: View {
     private static let maximumListHeight: CGFloat = 560
 
     private func move(by offset: Int) {
-        let ids = state.snapshot.groups.map(\.id)
+        let ids = state.orderedGroups.map(\.id)
         guard !ids.isEmpty else { return }
         guard let current = focusedGroupID, let index = ids.firstIndex(of: current) else {
             focusedGroupID = ids.first

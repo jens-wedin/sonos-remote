@@ -2,6 +2,11 @@ import Foundation
 import Observation
 import SonosKit
 
+extension PlaybackState {
+    /// Playing or about to play; these groups sort to the top of the panel.
+    var isActive: Bool { self == .playing || self == .buffering }
+}
+
 enum OpenRowTab: String, CaseIterable, Identifiable {
     case favorites, eq, group
     var id: String { rawValue }
@@ -17,6 +22,17 @@ enum OpenRowTab: String, CaseIterable, Identifiable {
 @MainActor @Observable
 final class AppState {
     private(set) var snapshot = HouseholdSnapshot()
+
+    /// Groups for display: the ones playing (or about to) first, then the rest, each tier by name.
+    /// The reducer keeps `snapshot.groups` in plain name order so this is purely presentational.
+    var orderedGroups: [Group] {
+        snapshot.groups.sorted { lhs, rhs in
+            let lhsActive = lhs.playbackState.isActive
+            let rhsActive = rhs.playbackState.isActive
+            if lhsActive != rhsActive { return lhsActive }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
     /// The one open row. nil only when the user closed it or nothing is discovered.
     var openGroupID: String? {
         didSet { defaults.set(openGroupID, forKey: Self.openGroupKey) }
