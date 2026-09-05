@@ -24,7 +24,7 @@ public final class TrustStore: Sendable {
     public init() {}
 
     public func allow(host: String) {
-        hosts.withLock { $0.insert(host) }
+        _ = hosts.withLock { $0.insert(host) }
     }
 
     public func shouldTrust(host: String) -> Bool {
