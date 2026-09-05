@@ -9,3 +9,4 @@
 - Favorites events are `versionChanged`; re-fetch the list over REST.
 - EQ is not in the 1443 API. UPnP `RenderingControl` on `http://IP:1400/MediaRenderer/RenderingControl/Control`: GetBass/SetBass, GetTreble/SetTreble, GetLoudness/SetLoudness (Channel Master), GetEQ/SetEQ with EQType SubGain, SubCrossover. Unsupported EQType → HTTP 500 SOAP fault errorCode 402.
 - Sub detection: `GetEQ SubCrossover` > 0 means a sub is attached (Amp reports 99, others 0).
+- A player can stay listed in Bonjour while actually unreachable — the mDNS record is a cached announcement, not a liveness check. REST calls to it then time out (`NSURLErrorDomain -1001`) even though `dns-sd`/`NWBrowser` still shows it. Don't treat "present in Bonjour" as "reachable"; fail over to another discovered player and retry with backoff instead of trusting the first result.
