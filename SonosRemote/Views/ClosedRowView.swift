@@ -24,10 +24,11 @@ struct ClosedRowView: View {
                 label: "",
                 volume: group.volume,
                 accessibilityName: group.name,
+                compact: true,
                 onChange: { state.setGroupVolume($0, group: group.id) },
                 onMute: { state.setGroupMuted($0, group: group.id) }
             )
-            .frame(width: 130)
+            .frame(width: 150)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -39,7 +40,9 @@ struct ClosedRowView: View {
 
     private var subtitle: String {
         guard let now = group.nowPlaying else { return "Not playing" }
-        return [now.title, now.artist].compactMap { $0 }.joined(separator: " · ")
+        let parts = [now.title, now.artist ?? ""].filter { !$0.isEmpty }
+        if !parts.isEmpty { return parts.joined(separator: " · ") }
+        return now.containerName ?? "Now playing"
     }
 
     private var stateDescription: String {
