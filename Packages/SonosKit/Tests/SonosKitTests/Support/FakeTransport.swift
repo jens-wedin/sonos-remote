@@ -20,6 +20,7 @@ final class FakeTransport: Transport, Sendable {
         var requests: [APIRequest] = []
         var rules: [Rule] = []
         var sockets: [FakeSocketConnection] = []
+        var onSocketOpened: (@Sendable (FakeSocketConnection) -> Void)?
     }
 
     private let state = Mutex(State())
@@ -27,6 +28,14 @@ final class FakeTransport: Transport, Sendable {
     var requests: [APIRequest] { state.withLock { $0.requests } }
     var sockets: [FakeSocketConnection] { state.withLock { $0.sockets } }
     var socketCount: Int { sockets.count }
+
+    /// Test hook: invoked synchronously, before `openSocket` returns, on every connection it
+    /// creates from here on. Opt-in; nil by default so existing tests are unaffected. Lets a
+    /// test arrange a connection's state (e.g. `blockSends()`) before `PlayerSocket` can send
+    /// on it, closing races that would otherwise depend on scheduling.
+    func onSocketOpened(_ hook: @escaping @Sendable (FakeSocketConnection) -> Void) {
+        state.withLock { $0.onSocketOpened = hook }
+    }
 
     func requests(matching fragment: String) -> [APIRequest] {
         requests.filter { $0.url.absoluteString.contains(fragment) }
@@ -62,7 +71,11 @@ final class FakeTransport: Transport, Sendable {
 
     func openSocket(_ url: URL, headers: [String: String], protocols: [String]) async throws -> any SocketConnection {
         let connection = FakeSocketConnection(url: url)
-        state.withLock { $0.sockets.append(connection) }
+        let hook = state.withLock { state -> (@Sendable (FakeSocketConnection) -> Void)? in
+            state.sockets.append(connection)
+            return state.onSocketOpened
+        }
+        hook?(connection)
         return connection
     }
 }

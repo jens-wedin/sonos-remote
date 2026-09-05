@@ -67,6 +67,45 @@ import Testing
         await socket.stop()
     }
 
+    /// Regression test: a `setSubscriptions` call that lands while the initial post-connect
+    /// subscribe sends are still in flight must not be lost or double-counted. Before the fix,
+    /// `self.connection` was published before those sends completed, so a concurrent
+    /// `setSubscriptions` could see a connection but a stale (usually empty) `active`, computing
+    /// its diff against the wrong baseline; `run()` would then clobber `active` afterwards,
+    /// silently dropping subscriptions that were never unsubscribed.
+    @Test func setSubscriptionsDuringInitialConnectIsReconciledAfterConnecting() async throws {
+        let transport = FakeTransport()
+        let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)
+        let a = Subscription(namespace: "playerVolume:1", scope: .player("A"))
+        let b = Subscription(namespace: "playerVolume:1", scope: .player("B"))
+        let c = Subscription(namespace: "playerVolume:1", scope: .player("C"))
+        await socket.setSubscriptions([a, b])
+        transport.onSocketOpened { $0.blockSends() }
+
+        await socket.start()
+        var outputs = socket.outputs.makeAsyncIterator()
+
+        try await waitUntil { transport.socketCount == 1 }
+        let connection = transport.sockets[0]
+
+        // The initial subscribe(A)/subscribe(B) sends are blocked, so `self.connection` has not
+        // been published yet: this call can only update `desired`, not touch `active`.
+        await socket.setSubscriptions([a, c])
+        connection.releaseSends()
+
+        #expect(await outputs.next() == .connected)
+        #expect(connection.sentText.count == 4)
+        let initialSends = connection.sentText[0...1]
+        #expect(initialSends.contains { $0.contains(#""command":"subscribe""#) && $0.contains(#""playerId":"A""#) })
+        #expect(initialSends.contains { $0.contains(#""command":"subscribe""#) && $0.contains(#""playerId":"B""#) })
+        #expect(connection.sentText[2].contains(#""command":"unsubscribe""#))
+        #expect(connection.sentText[2].contains(#""playerId":"B""#))
+        #expect(connection.sentText[3].contains(#""command":"subscribe""#))
+        #expect(connection.sentText[3].contains(#""playerId":"C""#))
+
+        await socket.stop()
+    }
+
     @Test func stopEndsTheOutputStream() async throws {
         let transport = FakeTransport()
         let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)

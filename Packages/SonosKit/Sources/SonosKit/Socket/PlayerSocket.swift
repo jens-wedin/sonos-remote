@@ -51,13 +51,23 @@ actor PlayerSocket {
     func setSubscriptions(_ new: Set<Subscription>) async {
         desired = new
         guard let connection else { return }
-        for subscription in active.subtracting(new) {
+        await reconcile(with: connection)
+    }
+
+    /// Sends the un/subscribe diff between `active` and `desired` on `connection`.
+    /// `active` is updated to `desired` before any send so a `setSubscriptions` call that
+    /// lands while this is awaiting a send always computes its own diff against the latest
+    /// baseline, instead of one this call is still in the middle of publishing.
+    private func reconcile(with connection: any SocketConnection) async {
+        let toRemove = active.subtracting(desired)
+        let toAdd = desired.subtracting(active)
+        active = desired
+        for subscription in toRemove {
             try? await connection.send(subscription.frame(command: "unsubscribe"))
         }
-        for subscription in new.subtracting(active) {
+        for subscription in toAdd {
             try? await connection.send(subscription.frame(command: "subscribe"))
         }
-        active = new
     }
 
     private func run() async {
@@ -70,11 +80,23 @@ actor PlayerSocket {
                     headers: ["X-Sonos-Api-Key": LocalAPIClient.apiKey],
                     protocols: [Self.subprotocol]
                 )
-                self.connection = connection
-                for subscription in desired {
-                    try await connection.send(subscription.frame(command: "subscribe"))
+                // Snapshot `desired` and send the initial subscribes *before* publishing
+                // `self.connection`, so a concurrent `setSubscriptions` sees no connection
+                // yet (and only updates `desired`) rather than reconciling against a stale
+                // `active` baseline. `reconcile` below then catches up on anything that
+                // changed while these sends were in flight.
+                let snapshot = desired
+                do {
+                    for subscription in snapshot {
+                        try await connection.send(subscription.frame(command: "subscribe"))
+                    }
+                } catch {
+                    connection.close()
+                    throw error
                 }
-                active = desired
+                self.connection = connection
+                active = snapshot
+                await reconcile(with: connection)
                 attempt = 0
                 continuation.yield(.connected)
                 pinger = Task {
