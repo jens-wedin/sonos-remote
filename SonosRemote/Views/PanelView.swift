@@ -3,8 +3,10 @@ import SonosKit
 
 struct PanelView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.openWindow) private var openWindow
     let closePanel: () -> Void
-    var openSettings: () -> Void = {}
+    /// Receives the environment's `openWindow` action so the App can open the Settings window.
+    var openSettings: (OpenWindowAction) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,7 +42,7 @@ struct PanelView: View {
             }
 
             Divider()
-            FooterView(openSettings: openSettings)
+            FooterView(openSettings: { openSettings(openWindow) })
         }
         .frame(width: 340)
         .onExitCommand(perform: closePanel)

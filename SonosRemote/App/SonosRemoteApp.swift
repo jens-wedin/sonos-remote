@@ -23,15 +23,23 @@ struct SonosRemoteApp: App {
 
     var body: some Scene {
         MenuBarExtra("Sonos", systemImage: "hifispeaker.2") {
-            PanelView(closePanel: { panel.close() }, openSettings: { settingsOpener.open(closePanel: { panel.close() }) })
-                .environment(appState)
-                .environment(panel)
+            PanelView(
+                closePanel: { panel.close() },
+                openSettings: { openWindow in
+                    settingsOpener.open(closePanel: { panel.close() }, openWindow: openWindow)
+                }
+            )
+            .environment(appState)
+            .environment(panel)
         }
         .menuBarExtraAccess(isPresented: $panel.isPresented)
         .menuBarExtraStyle(.window)
 
-        Settings {
-            SettingsView().navigationTitle("Sonos Remote Settings")
+        // A plain Window scene instead of `Settings`: see SettingsOpener for why.
+        Window(SettingsOpener.windowTitle, id: SettingsOpener.windowID) {
+            SettingsView()
         }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }

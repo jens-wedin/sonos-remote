@@ -1,18 +1,33 @@
 import AppKit
+import SwiftUI
 import os
 
+/// Shows the Settings window from a Dock-less (accessory) app.
+///
+/// The app opens a regular SwiftUI `Window` scene (id `settings`) rather than the `Settings`
+/// scene: the private `showSettingsWindow:` action is unreliable from a `MenuBarExtra` on
+/// macOS 26 and, even when it works, the window can open behind everything else. Here the
+/// app becomes a regular app while the window is open, brings the window to the front
+/// explicitly, and returns to accessory mode when it closes.
 @MainActor
 final class SettingsOpener {
+    static let windowID = "settings"
+    static let windowTitle = "Sonos Remote Settings"
+
     private var observer: (any NSObjectProtocol)?
     private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "settings")
 
-    func open(closePanel: () -> Void) {
+    func open(closePanel: () -> Void, openWindow: OpenWindowAction) {
         closePanel()
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
-                _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        openWindow(id: Self.windowID)
+        NSApp.activate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            if let window = NSApp.windows.first(where: { self.isSettingsWindow($0) }) {
+                window.center()
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+                NSApp.activate()
             }
             self.watchForClose()
             self.verifySettingsWindowAppeared()
@@ -22,7 +37,7 @@ final class SettingsOpener {
     /// Shared heuristic for recognizing the Settings window, used both while watching for
     /// its close and while confirming it actually appeared.
     private func isSettingsWindow(_ window: NSWindow) -> Bool {
-        window.identifier?.rawValue.contains("Settings") == true || window.title == "Sonos Remote Settings"
+        window.identifier?.rawValue.lowercased().contains(Self.windowID) == true || window.title == Self.windowTitle
     }
 
     private func watchForClose() {
@@ -43,9 +58,8 @@ final class SettingsOpener {
         }
     }
 
-    /// If neither `showSettingsWindow:` nor `showPreferencesWindow:` actually produced a
-    /// visible Settings window, don't strand the app in `.regular` (Dock icon) with a dangling
-    /// close observer — revert the activation policy and log the failure.
+    /// If no visible Settings window exists two seconds later, don't strand the app in
+    /// `.regular` (Dock icon) with a dangling close observer — revert and log the failure.
     private func verifySettingsWindowAppeared() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             let appeared = NSApp.windows.contains { $0.isVisible && self.isSettingsWindow($0) }
@@ -55,7 +69,7 @@ final class SettingsOpener {
                 NotificationCenter.default.removeObserver(observer)
                 self.observer = nil
             }
-            self.logger.error("Settings window did not appear after showSettingsWindow:/showPreferencesWindow:")
+            self.logger.error("Settings window did not appear after openWindow(id: \"settings\")")
         }
     }
 }

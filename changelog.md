@@ -8,6 +8,7 @@ All notable changes to this project are documented here. Format follows Keep a C
 - Rows are ordered with playing (or buffering) groups first, then the rest, each tier alphabetical, so the room that is making sound is always at the top of the panel.
 
 ### Fixed
+- "Settings…" did nothing visible: the Settings scene opened behind other windows from the Dock-less app. Settings is now a regular window that the app opens and brings to the front, returning to menu-bar-only mode when it closes.
 - The play/pause button was invisible: its circle used a hierarchical fill that resolved to the glyph colour. Both now use explicit label and window-background colours.
 - The PLAYING/PAUSED badge could wrap onto two lines in a closed row; it no longer wraps, and the closed-row slider is 130 pt wide to give the text room.
 - The room list rendered with zero height inside the menu bar window (a `ScrollView` has no intrinsic size there), so the panel showed only the header and footer. The list now measures its rows and sizes itself to them, capped at 560 pt.
