@@ -30,13 +30,21 @@ final class AppState {
     /// Replaced by `retryDiscovery()` (Task 18); everything else reads it at call time.
     private(set) var household: Household
     private let defaults: UserDefaults
+    private let clearDelay: Duration
     private var consumeTask: Task<Void, Never>?
     private var resolvedInitialRow = false
+    /// Group ids seen in the last applied snapshot. Used to tell a topology change (which may
+    /// reopen a user-closed row) apart from a plain state update (which must not).
+    private var lastGroupIDs: Set<String> = []
+    /// Bumped on every `report` for a row so a stale delayed clear (from an earlier error that
+    /// happens to render the same message) can't clear a newer one.
+    private var errorGeneration: [String: Int] = [:]
     private static let openGroupKey = "openGroupID"
 
-    init(household: Household, defaults: UserDefaults = .standard) {
+    init(household: Household, defaults: UserDefaults = .standard, clearDelay: Duration = .seconds(3)) {
         self.household = household
         self.defaults = defaults
+        self.clearDelay = clearDelay
         self.openGroupID = defaults.string(forKey: Self.openGroupKey)
     }
 
@@ -59,11 +67,26 @@ final class AppState {
     func apply(_ snapshot: HouseholdSnapshot) {
         self.snapshot = snapshot
         guard !snapshot.groups.isEmpty else { return }
+        let groupIDs = Set(snapshot.groups.map(\.id))
+        let topologyChanged = groupIDs != lastGroupIDs
         let openStillExists = openGroupID.map { id in snapshot.groups.contains { $0.id == id } } ?? false
-        if !openStillExists && (!resolvedInitialRow || openGroupID != nil) {
+        let shouldResolve: Bool
+        if openStillExists {
+            // Keep the open row.
+            shouldResolve = false
+        } else if openGroupID != nil {
+            // The open row vanished; always resolve to a new one.
+            shouldResolve = true
+        } else {
+            // Nothing is open: resolve on the very first snapshot, or once the topology has
+            // changed since the user closed the row. Otherwise the closed state persists.
+            shouldResolve = !resolvedInitialRow || topologyChanged
+        }
+        if shouldResolve {
             openGroupID = RowOpenPolicy.resolve(remembered: openGroupID, groups: snapshot.groups)
         }
         resolvedInitialRow = true
+        lastGroupIDs = groupIDs
         if let open = openGroupID, let group = snapshot.group(open), !group.playerIDs.contains(eqPlayerID ?? "") {
             eqPlayerID = group.coordinatorID
         }
@@ -136,11 +159,14 @@ final class AppState {
         }
     }
 
-    private func report(_ groupID: String, _ error: any Error) {
+    /// Internal (not private) so tests can exercise the delayed-clear behavior directly.
+    func report(_ groupID: String, _ error: any Error) {
+        let generation = (errorGeneration[groupID] ?? 0) + 1
+        errorGeneration[groupID] = generation
         rowErrors[groupID] = Self.message(for: error)
         Task {
-            try? await Task.sleep(for: .seconds(3))
-            if rowErrors[groupID] == Self.message(for: error) { rowErrors[groupID] = nil }
+            try? await Task.sleep(for: clearDelay)
+            if errorGeneration[groupID] == generation { rowErrors[groupID] = nil }
         }
     }
 
