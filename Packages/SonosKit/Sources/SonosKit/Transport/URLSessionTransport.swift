@@ -1,6 +1,9 @@
 import Foundation
+import os
 
 public final class URLSessionTransport: Transport, @unchecked Sendable {
+    private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "transport")
+
     public let trustStore: TrustStore
     private let session: URLSession
 
@@ -19,9 +22,14 @@ public final class URLSessionTransport: Transport, @unchecked Sendable {
         for (name, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }
-        let (data, response) = try await session.data(for: urlRequest)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        return APIResponse(status: status, body: data)
+        do {
+            let (data, response) = try await session.data(for: urlRequest)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            return APIResponse(status: status, body: data)
+        } catch {
+            logger.error("request to \(request.url.absoluteString, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            throw error
+        }
     }
 
     public func openSocket(_ url: URL, headers: [String: String], protocols: [String]) async throws -> any SocketConnection {
@@ -38,6 +46,8 @@ public final class URLSessionTransport: Transport, @unchecked Sendable {
 
 /// Accepts the player's self-signed certificate only for allowed private hosts.
 private final class TrustDelegate: NSObject, URLSessionDelegate, Sendable {
+    private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "transport")
+
     let store: TrustStore
 
     init(store: TrustStore) {
@@ -46,9 +56,12 @@ private final class TrustDelegate: NSObject, URLSessionDelegate, Sendable {
 
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         let space = challenge.protectionSpace
-        guard space.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let trust = space.serverTrust,
-              store.shouldTrust(host: space.host) else {
+        guard space.authenticationMethod == NSURLAuthenticationMethodServerTrust else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        guard let trust = space.serverTrust, store.shouldTrust(host: space.host) else {
+            logger.error("declined trust for host \(space.host, privacy: .public); falling back to default handling")
             completionHandler(.performDefaultHandling, nil)
             return
         }

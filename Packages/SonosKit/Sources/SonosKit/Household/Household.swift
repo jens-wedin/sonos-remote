@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public enum HouseholdError: Error, Hashable, Sendable {
     case unknownGroup
@@ -9,6 +10,8 @@ public enum HouseholdError: Error, Hashable, Sendable {
 /// Owns discovery, one socket per player, the REST and UPnP clients, and the snapshot.
 /// Everything the app needs goes through here.
 public actor Household {
+    private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "household")
+
     public struct Configuration: Sendable {
         public var discoveryTimeout: Duration = .seconds(10)
         public var backoff = Backoff()
@@ -37,6 +40,10 @@ public actor Household {
     private var removedPlayers: Set<String> = []
     private var discoveryTask: Task<Void, Never>?
     private var timeoutTask: Task<Void, Never>?
+    /// Retries the initial (and any post-`.noPlayersFound`) topology fetch until it succeeds,
+    /// is unauthorized, or is cancelled. Once `.ready`, later failures are covered by the
+    /// per-player socket reconnect logic instead.
+    private var bootstrapTask: Task<Void, Never>?
     private var started = false
 
     public init(discovery: any Discovering, transport: any Transport, trustStore: TrustStore? = nil, configuration: Configuration = .init()) {
@@ -86,6 +93,7 @@ public actor Household {
     public func stop() {
         discoveryTask?.cancel()
         timeoutTask?.cancel()
+        bootstrapTask?.cancel()
         discovery.stop()
         for (id, socket) in sockets {
             socketTasks[id]?.cancel()
@@ -146,16 +154,22 @@ public actor Household {
     private func handle(discovery event: DiscoveryEvent) async {
         switch event {
         case .found(let player):
+            logger.info("discovery found player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
             removedPlayers.remove(player.id)
             addresses[player.id] = player.address
             trustStore?.allow(host: player.address)
             if gatewayID == nil {
                 gatewayID = player.id
-                timeoutTask?.cancel()
-                await refreshTopology()
+                startBootstrap()
                 await refreshFavorites()
+            } else if snapshot.status == .noPlayersFound {
+                // A player re-announced (e.g. address change) after every fetch had failed
+                // and the timeout gave up; give bootstrapping another chance.
+                apply(.status(.discovering))
+                startBootstrap()
             }
         case .lost(let playerID):
+            logger.info("discovery lost player \(playerID, privacy: .public)")
             removedPlayers.insert(playerID)
             subProbed.remove(playerID)
             apply(.playerRemoved(playerID: playerID))
@@ -163,12 +177,32 @@ public actor Household {
             if gatewayID == playerID { gatewayID = snapshot.players.first?.id }
             await reconcileSubscriptions()
         case .permissionDenied:
+            logger.info("discovery reported Local Network permission denied")
             apply(.status(.localNetworkDenied))
         }
     }
 
+    /// Starts (replacing any prior run) the loop that retries the initial topology fetch until
+    /// it succeeds, is unauthorized, or is cancelled by `stop()`.
+    private func startBootstrap() {
+        bootstrapTask?.cancel()
+        bootstrapTask = Task { [weak self, configuration] in
+            var attempt = 0
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.refreshTopology()
+                let status = await self.current.status
+                if status == .ready || status == .unauthorized { return }
+                if Task.isCancelled { return }
+                try? await Task.sleep(for: configuration.backoff.delay(attempt: attempt, random: Double.random(in: 0...1)))
+                attempt += 1
+            }
+        }
+    }
+
     private func discoveryTimedOut() {
-        if snapshot.players.isEmpty, snapshot.status == .discovering {
+        if snapshot.status == .discovering {
+            logger.info("discovery timed out before any topology could be fetched")
             apply(.status(.noPlayersFound))
         }
     }
@@ -177,6 +211,7 @@ public actor Household {
 
     private func refreshTopology() async {
         guard let gateway = gatewayAddress() else { return }
+        logger.info("fetching topology from \(gateway, privacy: .public)")
         do {
             let response = try await api.groups(from: gateway)
             allowTrust(forWirePlayers: response.players)
@@ -190,10 +225,13 @@ public actor Household {
             await ensureSockets()
             await reconcileSubscriptions()
             await probeSubs()
-        } catch LocalAPIError.invalidAPIKey, LocalAPIError.unauthorized {
+        } catch let error as LocalAPIError where error == .invalidAPIKey || error == .unauthorized {
+            logger.error("topology fetch from \(gateway, privacy: .public) unauthorized: \(String(describing: error), privacy: .public)")
             apply(.status(.unauthorized))
         } catch {
-            // Keep the previous snapshot; the next socket event or command will retry.
+            // Keep the previous snapshot; the bootstrap loop (before `.ready`) or the next
+            // socket event/command (after) will retry.
+            logger.error("topology fetch from \(gateway, privacy: .public) failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -248,7 +286,17 @@ public actor Household {
     }
 
     private func handle(socketOutput output: PlayerSocket.Output, from playerID: String) async {
-        guard case .event(let event) = output else { return }
+        let event: SocketEvent
+        switch output {
+        case .connected:
+            logger.info("socket connected for player \(playerID, privacy: .public)")
+            return
+        case .disconnected:
+            logger.info("socket disconnected for player \(playerID, privacy: .public)")
+            return
+        case .event(let socketEvent):
+            event = socketEvent
+        }
         switch event {
         case .playbackStatus(let groupID, let state):
             apply(.playbackStatus(groupID: groupID, state: state))
@@ -279,7 +327,12 @@ public actor Household {
     // MARK: Helpers
 
     private func apply(_ event: HouseholdEvent) {
+        let previousStatus = snapshot.status
         snapshot = SnapshotReducer.reduce(snapshot, event)
+        let newStatus = snapshot.status
+        if newStatus != previousStatus {
+            logger.info("status changed from \(String(describing: previousStatus), privacy: .public) to \(String(describing: newStatus), privacy: .public)")
+        }
         for continuation in observers.values {
             continuation.yield(snapshot)
         }

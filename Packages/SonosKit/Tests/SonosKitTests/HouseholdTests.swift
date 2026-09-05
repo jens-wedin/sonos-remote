@@ -12,13 +12,13 @@ import Testing
         let trust = TrustStore()
         let household: Household
 
-        init(timeout: Duration = .seconds(5)) {
+        init(timeout: Duration = .seconds(5), backoff: Backoff = Backoff(base: .milliseconds(1), max: .milliseconds(5), jitter: 0)) {
             transport.respond(whenPathContains: "/households/local/groups", body: Fixtures.data("groups.json"))
             transport.respond(whenPathContains: "/households/local/favorites", body: Fixtures.data("favorites.json"))
             transport.respond(whenPathContains: "RenderingControl", body: Data(SOAP.envelope(action: "GetEQResponse", arguments: [("CurrentValue", "0")]).utf8))
             var configuration = Household.Configuration()
             configuration.discoveryTimeout = timeout
-            configuration.backoff = Backoff(base: .milliseconds(1), max: .milliseconds(5), jitter: 0)
+            configuration.backoff = backoff
             household = Household(discovery: discovery, transport: transport, trustStore: trust, configuration: configuration)
         }
 
@@ -209,6 +209,36 @@ import Testing
         try await waitUntil { await h.household.current.groups.map(\.name) == ["Elsas Sovrum", "Flyttbar + 1", "Stereo"] }
         #expect(h.transport.socketCount == 4)
         try await waitUntil { flyttbarSocket.sentText.contains { $0.contains(newGid) && $0.contains(#""command":"subscribe""#) } }
+        await h.household.stop()
+    }
+
+    // MARK: Fix round 2 (task 15b): initial-fetch retry and timeout semantics
+
+    @Test func initialFetchFailureRetriesUntilItSucceeds() async throws {
+        let h = Harness(backoff: Backoff(base: .milliseconds(5), max: .milliseconds(5), jitter: 0))
+        h.transport.respond(whenPathContains: "/households/local/groups", sequence: [
+            StubResponse(status: 500, body: Data()),
+            StubResponse(status: 500, body: Data()),
+            StubResponse(body: Fixtures.data("groups.json")),
+        ])
+        _ = try await h.startAndDiscover(stereo)
+        #expect(h.transport.requests(matching: "/households/local/groups").count == 3)
+        await h.household.stop()
+    }
+
+    @Test func initialFetchFailingUntilTheTimeoutSetsNoPlayersFound() async throws {
+        let h = Harness(timeout: .milliseconds(150), backoff: Backoff(base: .milliseconds(5), max: .milliseconds(5), jitter: 0))
+        h.transport.respond(whenPathContains: "/households/local/groups", status: 500, body: Data())
+        let stream = await h.household.snapshots()
+        await h.household.start()
+        h.discovery.emit(.found(stereo))
+        for await snapshot in stream where snapshot.status == .noPlayersFound { break }
+        #expect(await h.household.current.status == .noPlayersFound)
+
+        h.transport.respond(whenPathContains: "/households/local/groups", body: Fixtures.data("groups.json"))
+        h.discovery.emit(.found(stereo))
+        for await snapshot in stream where snapshot.status == .ready { break }
+        #expect(await h.household.current.status == .ready)
         await h.household.stop()
     }
 }

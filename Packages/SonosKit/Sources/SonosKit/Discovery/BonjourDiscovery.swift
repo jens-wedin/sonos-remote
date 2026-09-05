@@ -1,6 +1,9 @@
 import Foundation
 import Network
+import os
 import Synchronization
+
+private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "discovery")
 
 /// Browses `_sonos._tcp` with NWBrowser. Works inside the App Sandbox as long as Info.plist
 /// lists the service in NSBonjourServices and has NSLocalNetworkUsageDescription.
@@ -35,6 +38,7 @@ public final class BonjourDiscovery: Discovering, @unchecked Sendable {
         let permissionDeniedSent = Mutex(false)
 
         browser.stateUpdateHandler = { state in
+            logger.info("browser state changed to \(String(describing: state), privacy: .public)")
             switch state {
             case .waiting(let error), .failed(let error):
                 guard case .dns(let code) = error, code == Self.policyDenied else { return }
@@ -57,11 +61,20 @@ public final class BonjourDiscovery: Discovering, @unchecked Sendable {
             for change in changes {
                 switch change {
                 case .added(let result):
-                    if let player = Self.player(from: result) { continuation.yield(.found(player)) }
+                    if let player = Self.player(from: result) {
+                        logger.info("added player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
+                        continuation.yield(.found(player))
+                    }
                 case .changed(_, let result, let flags) where flags.contains(.metadataChanged):
-                    if let player = Self.player(from: result) { continuation.yield(.found(player)) }
+                    if let player = Self.player(from: result) {
+                        logger.info("changed player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
+                        continuation.yield(.found(player))
+                    }
                 case .removed(let result):
-                    if let player = Self.player(from: result) { continuation.yield(.lost(playerID: player.id)) }
+                    if let player = Self.player(from: result) {
+                        logger.info("removed player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
+                        continuation.yield(.lost(playerID: player.id))
+                    }
                 default:
                     break
                 }

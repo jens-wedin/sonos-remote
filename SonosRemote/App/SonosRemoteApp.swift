@@ -11,6 +11,9 @@ struct SonosRemoteApp: App {
     init() {
         let panel = PanelController()
         _panel = State(initialValue: panel)
+        let appState = AppState.live()
+        _appState = State(initialValue: appState)
+        appState.start()
         KeyboardShortcuts.onKeyUp(for: .togglePanel) {
             Task { @MainActor in panel.toggle() }
         }
@@ -21,7 +24,6 @@ struct SonosRemoteApp: App {
             PanelView(closePanel: { panel.close() })
                 .environment(appState)
                 .environment(panel)
-                .onAppear { appState.start() }
         }
         .menuBarExtraAccess(isPresented: $panel.isPresented)
         .menuBarExtraStyle(.window)
