@@ -74,7 +74,11 @@ public actor Household {
             }
         }
         timeoutTask = Task { [weak self, configuration] in
-            try? await Task.sleep(for: configuration.discoveryTimeout)
+            do {
+                try await Task.sleep(for: configuration.discoveryTimeout)
+            } catch {
+                return
+            }
             await self?.discoveryTimedOut()
         }
     }
@@ -91,6 +95,10 @@ public actor Household {
         socketTasks = [:]
         for continuation in observers.values { continuation.finish() }
         observers = [:]
+        started = false
+        gatewayID = nil
+        removedPlayers = []
+        subProbed = []
     }
 
     // MARK: Commands
@@ -149,6 +157,7 @@ public actor Household {
             }
         case .lost(let playerID):
             removedPlayers.insert(playerID)
+            subProbed.remove(playerID)
             apply(.playerRemoved(playerID: playerID))
             await stopSocket(playerID)
             if gatewayID == playerID { gatewayID = snapshot.players.first?.id }
@@ -170,6 +179,7 @@ public actor Household {
         guard let gateway = gatewayAddress() else { return }
         do {
             let response = try await api.groups(from: gateway)
+            allowTrust(forWirePlayers: response.players)
             let filtered = excludingRemovedPlayers(groups: response.groups, players: response.players)
             apply(.topology(groups: filtered.groups, players: filtered.players))
             for player in snapshot.players {
@@ -249,6 +259,7 @@ public actor Household {
         case .playerVolume(let id, let volume):
             apply(.playerVolume(playerID: id, volume: volume))
         case .groups(let groups, let players):
+            allowTrust(forWirePlayers: players)
             let filtered = excludingRemovedPlayers(groups: groups, players: players)
             apply(.topology(groups: filtered.groups, players: filtered.players))
             for player in snapshot.players {
@@ -271,6 +282,17 @@ public actor Household {
         snapshot = SnapshotReducer.reduce(snapshot, event)
         for continuation in observers.values {
             continuation.yield(snapshot)
+        }
+    }
+
+    /// Allows every address in a raw topology payload, before `removedPlayers` filtering, so a
+    /// topology-listed player address is always trusted even if it's currently filtered out of
+    /// the snapshot.
+    private func allowTrust(forWirePlayers players: [WirePlayer]) {
+        for player in players {
+            if let address = WirePlayer.host(fromWebsocketURL: player.websocketUrl) {
+                trustStore?.allow(host: address)
+            }
         }
     }
 
