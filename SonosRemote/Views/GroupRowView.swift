@@ -22,12 +22,16 @@ struct GroupRowView: View {
                     .accessibilityLabel("Error: \(error)")
             }
         }
+        .focusEffectDisabled(false)
         .background(state.openGroupID == group.id ? Color(nsColor: .controlBackgroundColor) : .clear)
         .focusable()
         .focusEffectDisabled()
         .overlay {
             if isFocused {
-                RoundedRectangle(cornerRadius: 6).strokeBorder(Color.accentColor, lineWidth: 2).padding(2)
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .padding(2)
+                    .allowsHitTesting(false)
             }
         }
         .onKeyPress(.return) { state.toggleRow(group.id); return .handled }
