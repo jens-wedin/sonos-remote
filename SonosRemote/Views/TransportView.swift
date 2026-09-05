@@ -13,11 +13,13 @@ struct TransportView: View {
             .accessibilityLabel("Previous track")
 
             Button { state.togglePlayPause(group: group.id) } label: {
+                // Explicit colours: a hierarchical `.primary` fill would resolve against the
+                // glyph's foreground style and paint the circle the same colour as the glyph.
                 Image(systemName: group.playbackState == .playing ? "pause.fill" : "play.fill")
                     .font(.title3)
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(.primary))
                     .foregroundStyle(Color(nsColor: .windowBackgroundColor))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color(nsColor: .labelColor)))
             }
             .accessibilityLabel(group.playbackState == .playing ? "Pause" : "Play")
 

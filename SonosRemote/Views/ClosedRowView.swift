@@ -28,7 +28,7 @@ struct ClosedRowView: View {
                 onChange: { state.setGroupVolume($0, group: group.id) },
                 onMute: { state.setGroupMuted($0, group: group.id) }
             )
-            .frame(width: 150)
+            .frame(width: 130)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -75,6 +75,8 @@ struct PlaybackBadge: View {
 private extension Text {
     func badgeStyle(_ color: Color) -> some View {
         self.font(.system(size: 9, weight: .bold))
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(.white)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
