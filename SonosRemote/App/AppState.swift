@@ -64,6 +64,19 @@ final class AppState {
         }
     }
 
+    /// Tears the household down and starts discovery again (used by the "No Sonos found" state).
+    func retryDiscovery() {
+        consumeTask?.cancel()
+        consumeTask = nil
+        resolvedInitialRow = false
+        let old = household
+        Task { await old.stop() }
+        let transport = URLSessionTransport()
+        household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
+        snapshot = HouseholdSnapshot()
+        start()
+    }
+
     func apply(_ snapshot: HouseholdSnapshot) {
         self.snapshot = snapshot
         guard !snapshot.groups.isEmpty else { return }

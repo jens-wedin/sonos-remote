@@ -85,4 +85,17 @@ import SonosKit
         try await Task.sleep(for: .milliseconds(150))
         #expect(appState.rowErrors[groupID] == nil)
     }
+
+    @Test func retryDiscoveryReplacesHouseholdAndResetsSnapshot() {
+        let appState = makeAppState()
+        let originalHousehold = appState.household
+        appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
+        #expect(appState.snapshot.status == .ready)
+
+        appState.retryDiscovery()
+
+        #expect(appState.household !== originalHousehold)
+        #expect(appState.snapshot.status == .discovering)
+        #expect(appState.snapshot.groups.isEmpty)
+    }
 }

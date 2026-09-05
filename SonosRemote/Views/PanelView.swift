@@ -19,15 +19,21 @@ struct PanelView: View {
 
             StatusBannerView()
 
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(state.snapshot.groups) { group in
-                        Divider()
-                        GroupRowView(group: group)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(state.snapshot.groups) { group in
+                            Divider()
+                            GroupRowView(group: group)
+                                .focused($focusedGroupID, equals: group.id)
+                                .id(group.id)
+                        }
                     }
                 }
+                .frame(maxHeight: 560)
+                .onKeyPress(.downArrow) { move(by: 1); proxy.scrollTo(focusedGroupID); return .handled }
+                .onKeyPress(.upArrow) { move(by: -1); proxy.scrollTo(focusedGroupID); return .handled }
             }
-            .frame(maxHeight: 560)
 
             Divider()
             FooterView(openSettings: openSettings)
@@ -39,5 +45,17 @@ struct PanelView: View {
     private var roomCount: String {
         let count = state.snapshot.players.count
         return count == 0 ? "" : "\(count) room\(count == 1 ? "" : "s")"
+    }
+
+    @FocusState private var focusedGroupID: String?
+
+    private func move(by offset: Int) {
+        let ids = state.snapshot.groups.map(\.id)
+        guard !ids.isEmpty else { return }
+        guard let current = focusedGroupID, let index = ids.firstIndex(of: current) else {
+            focusedGroupID = ids.first
+            return
+        }
+        focusedGroupID = ids[max(0, min(ids.count - 1, index + offset))]
     }
 }
