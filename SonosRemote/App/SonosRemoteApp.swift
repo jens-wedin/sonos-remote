@@ -7,6 +7,7 @@ import KeyboardShortcuts
 struct SonosRemoteApp: App {
     @State private var appState: AppState
     @State private var panel: PanelController
+    @State private var settingsOpener: SettingsOpener
 
     init() {
         let panel = PanelController()
@@ -14,6 +15,7 @@ struct SonosRemoteApp: App {
         let appState = AppState.live()
         _appState = State(initialValue: appState)
         appState.start()
+        _settingsOpener = State(initialValue: SettingsOpener())
         KeyboardShortcuts.onKeyUp(for: .togglePanel) {
             Task { @MainActor in panel.toggle() }
         }
@@ -21,7 +23,7 @@ struct SonosRemoteApp: App {
 
     var body: some Scene {
         MenuBarExtra("Sonos", systemImage: "hifispeaker.2") {
-            PanelView(closePanel: { panel.close() })
+            PanelView(closePanel: { panel.close() }, openSettings: { settingsOpener.open(closePanel: { panel.close() }) })
                 .environment(appState)
                 .environment(panel)
         }
@@ -29,7 +31,7 @@ struct SonosRemoteApp: App {
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView()
+            SettingsView().navigationTitle("Sonos Remote Settings")
         }
     }
 }
