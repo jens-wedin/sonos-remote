@@ -19,9 +19,12 @@ struct PanelView: View {
 
             StatusBannerView()
 
+            // A ScrollView has no intrinsic height, and a MenuBarExtra window sizes itself to
+            // its content, so the list would collapse to zero. Measure the rows and give the
+            // scroll view exactly that height, capped so long lists scroll.
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    VStack(spacing: 0) {
                         ForEach(state.snapshot.groups) { group in
                             Divider()
                             GroupRowView(group: group)
@@ -29,8 +32,9 @@ struct PanelView: View {
                                 .id(group.id)
                         }
                     }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
                 }
-                .frame(maxHeight: 560)
+                .frame(height: min(listHeight, Self.maximumListHeight))
                 .onKeyPress(.downArrow) { move(by: 1); proxy.scrollTo(focusedGroupID); return .handled }
                 .onKeyPress(.upArrow) { move(by: -1); proxy.scrollTo(focusedGroupID); return .handled }
             }
@@ -48,6 +52,8 @@ struct PanelView: View {
     }
 
     @FocusState private var focusedGroupID: String?
+    @State private var listHeight: CGFloat = 0
+    private static let maximumListHeight: CGFloat = 560
 
     private func move(by offset: Int) {
         let ids = state.snapshot.groups.map(\.id)

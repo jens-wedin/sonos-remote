@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- The room list rendered with zero height inside the menu bar window (a `ScrollView` has no intrinsic size there), so the panel showed only the header and footer. The list now measures its rows and sizes itself to them, capped at 560 pt.
+
 ## [0.1.0] - 2026-09-05
 
 ### Added
