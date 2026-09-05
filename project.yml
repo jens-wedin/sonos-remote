@@ -1,0 +1,78 @@
+name: SonosRemote
+options:
+  bundleIdPrefix: com.jenswedin
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+packages:
+  SonosKit:
+    path: Packages/SonosKit
+  MenuBarExtraAccess:
+    url: https://github.com/orchetect/MenuBarExtraAccess
+    from: 1.3.0
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 3.0.0
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+targets:
+  SonosRemote:
+    type: application
+    platform: macOS
+    sources:
+      - path: SonosRemote
+    entitlements:
+      path: SonosRemote/SonosRemote.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+    info:
+      path: SonosRemote/Info.plist
+      properties:
+        CFBundleDisplayName: Sonos Remote
+        CFBundleName: Sonos Remote
+        LSUIElement: true
+        LSMinimumSystemVersion: "26.0"
+        NSLocalNetworkUsageDescription: Sonos Remote finds and controls your Sonos speakers on the local network.
+        NSBonjourServices:
+          - _sonos._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    dependencies:
+      - package: SonosKit
+      - package: MenuBarExtraAccess
+      - package: KeyboardShortcuts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jenswedin.SonosRemote
+        GENERATE_INFOPLIST_FILE: NO
+  SonosRemoteTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: SonosRemoteTests
+    dependencies:
+      - target: SonosRemote
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SonosRemote:
+    build:
+      targets:
+        SonosRemote: all
+        SonosRemoteTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SonosRemoteTests
