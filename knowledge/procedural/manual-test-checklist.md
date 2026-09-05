@@ -12,3 +12,4 @@ Preconditions: at least one room playing, one multi-room group, Terminal has Loc
 8. Errors: Wi‑Fi off at launch → "No Sonos found" + Retry works. Pull the plug on a speaker → its row disappears within 30 s.
 9. Settings: opens in front, Dock icon only while open; shortcut records and works; launch at login registers.
 10. Quit from the footer.
+11. Power off or disconnect every speaker (or the router): within ~30 s the panel shows "No Sonos found on this network" with Retry, not an empty list; power back on and Retry (or wait) → rows return.

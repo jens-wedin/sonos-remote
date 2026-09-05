@@ -32,6 +32,9 @@ public actor Household {
     private var gatewayID: String?
     private var addresses: [String: String] = [:]
     private var subProbed: Set<String> = []
+    /// Ids currently awaiting a sub probe response, so a `probeSubs()` call that starts while
+    /// an earlier one is still awaiting the same player's probe doesn't fire a duplicate request.
+    private var subProbeInFlight: Set<String> = []
     /// Players discovery has told us are gone. Discovery is authoritative for physical
     /// presence, so a topology fetch or `.groups` socket push that still lists one of these
     /// (because it raced ahead of, or was queued before, the `.lost` event) has it filtered
@@ -101,6 +104,7 @@ public actor Household {
         gatewayID = nil
         removedPlayers = []
         subProbed = []
+        subProbeInFlight = []
     }
 
     // MARK: Commands
@@ -169,8 +173,12 @@ public actor Household {
             logger.info("discovery lost player \(playerID, privacy: .public)")
             removedPlayers.insert(playerID)
             subProbed.remove(playerID)
+            subProbeInFlight.remove(playerID)
             apply(.playerRemoved(playerID: playerID))
             await stopSocket(playerID)
+            if snapshot.players.isEmpty {
+                apply(.status(.noPlayersFound))
+            }
             if gatewayID == playerID { gatewayID = snapshot.players.first?.id }
             await reconcileSubscriptions()
         case .permissionDenied:
@@ -307,10 +315,15 @@ public actor Household {
         }
     }
 
+    /// Only marks a player probed once the probe actually succeeds, so a timed-out or failed
+    /// probe doesn't pin `hasSub = false` forever — the next topology change retries it.
     private func probeSubs() async {
-        for player in snapshot.players where !subProbed.contains(player.id) {
+        for player in snapshot.players where !subProbed.contains(player.id) && !subProbeInFlight.contains(player.id) {
+            subProbeInFlight.insert(player.id)
+            let result = try? await upnp.hasSub(address: player.address)
+            subProbeInFlight.remove(player.id)
+            guard let hasSub = result else { continue }
             subProbed.insert(player.id)
-            let hasSub = (try? await upnp.hasSub(address: player.address)) ?? false
             apply(.playerHasSub(playerID: player.id, hasSub: hasSub))
         }
     }
@@ -322,7 +335,7 @@ public actor Household {
         for id in Set(sockets.keys).subtracting(wanted) {
             await stopSocket(id)
         }
-        for player in snapshot.players where sockets[player.id] == nil {
+        for player in snapshot.players where sockets[player.id] == nil && !player.address.isEmpty {
             let socket = PlayerSocket(playerID: player.id, address: player.address, transport: transport, backoff: configuration.backoff)
             sockets[player.id] = socket
             socketTasks[player.id] = Task { [weak self] in

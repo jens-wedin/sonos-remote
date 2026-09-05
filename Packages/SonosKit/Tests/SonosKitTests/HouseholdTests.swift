@@ -265,4 +265,40 @@ import Testing
         #expect(h.transport.requests(matching: "192.168.1.216").contains { $0.url.absoluteString.contains("/households/local/groups") })
         await h.household.stop()
     }
+
+    // MARK: Final-review fixes
+
+    @Test func losingEveryPlayerSetsNoPlayersFound() async throws {
+        let h = Harness()
+        _ = try await h.startAndDiscover(stereo)
+        for playerID in [
+            "RINCON_347E5C04E98101400",
+            "RINCON_48A6B8194D2A01400",
+            "RINCON_347E5C5091CE01400",
+            "RINCON_542A1B73A25001400",
+        ] {
+            h.discovery.emit(.lost(playerID: playerID))
+        }
+        try await waitUntil { await h.household.current.status == .noPlayersFound }
+        h.discovery.emit(.found(stereo))
+        try await waitUntil { await h.household.current.status == .ready }
+        await h.household.stop()
+    }
+
+    @Test func playersWithoutAddressGetNoSocket() async throws {
+        let h = Harness()
+        var json = try JSONSerialization.jsonObject(with: Fixtures.data("groups.json")) as! [String: Any]
+        var players = json["players"] as! [[String: Any]]
+        guard let index = players.firstIndex(where: { $0["id"] as? String == "RINCON_48A6B8194D2A01400" }) else {
+            Issue.record("fixture missing expected player")
+            return
+        }
+        players[index]["websocketUrl"] = "garbage"
+        json["players"] = players
+        let modified = try JSONSerialization.data(withJSONObject: json)
+        h.transport.respond(whenPathContains: "/households/local/groups", body: modified)
+        _ = try await h.startAndDiscover(stereo)
+        #expect(h.transport.socketCount == 3)
+        await h.household.stop()
+    }
 }

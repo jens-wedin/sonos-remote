@@ -27,7 +27,10 @@ actor PlayerSocket {
 
     init(playerID: String, address: String, transport: any Transport, backoff: Backoff = Backoff()) {
         self.playerID = playerID
-        self.url = URL(string: "wss://\(address):\(LocalAPIClient.port)/websocket/api")!
+        guard let url = URL(string: "wss://\(address):\(LocalAPIClient.port)/websocket/api") else {
+            preconditionFailure("Bad socket URL for player \(playerID) at \(address)")
+        }
+        self.url = url
         self.transport = transport
         self.backoff = backoff
         (outputs, continuation) = AsyncStream<Output>.makeStream()

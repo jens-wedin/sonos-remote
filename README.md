@@ -15,7 +15,7 @@ Every group in the house is a row; the open row has transport, per-speaker volum
 
 ### Not yet
 
-Media keys, Control Center now-playing integration, queue view, search.
+Media keys, Control Center now-playing integration, queue view, search, a "reconnecting" indicator on rows whose websocket is down (commands still work over REST while a socket reconnects).
 
 ## How it works
 
