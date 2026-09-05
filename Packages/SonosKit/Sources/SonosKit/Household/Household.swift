@@ -80,20 +80,14 @@ public actor Household {
                 await self.handle(discovery: event)
             }
         }
-        timeoutTask = Task { [weak self, configuration] in
-            do {
-                try await Task.sleep(for: configuration.discoveryTimeout)
-            } catch {
-                return
-            }
-            await self?.discoveryTimedOut()
-        }
+        armDiscoveryTimeout()
     }
 
     public func stop() {
         discoveryTask?.cancel()
         timeoutTask?.cancel()
         bootstrapTask?.cancel()
+        bootstrapTask = nil
         discovery.stop()
         for (id, socket) in sockets {
             socketTasks[id]?.cancel()
@@ -158,14 +152,17 @@ public actor Household {
             removedPlayers.remove(player.id)
             addresses[player.id] = player.address
             trustStore?.allow(host: player.address)
-            if gatewayID == nil {
-                gatewayID = player.id
-                startBootstrap()
-                await refreshFavorites()
-            } else if snapshot.status == .noPlayersFound {
-                // A player re-announced (e.g. address change) after every fetch had failed
-                // and the timeout gave up; give bootstrapping another chance.
+            if snapshot.status == .noPlayersFound {
+                // A player (re)announced after every fetch had failed and the timeout gave up;
+                // give bootstrapping another chance. Covers both the common case (some other
+                // player is still the gateway) and the case where every previously-known player
+                // was lost in the meantime (gatewayID is nil here too).
+                if gatewayID == nil { gatewayID = player.id }
                 apply(.status(.discovering))
+                armDiscoveryTimeout()
+                startBootstrap()
+            } else if gatewayID == nil {
+                gatewayID = player.id
                 startBootstrap()
             }
         case .lost(let playerID):
@@ -182,22 +179,75 @@ public actor Household {
         }
     }
 
-    /// Starts (replacing any prior run) the loop that retries the initial topology fetch until
-    /// it succeeds, is unauthorized, or is cancelled by `stop()`.
+    /// Starts (replacing any prior run, so there is never more than one loop) the loop that
+    /// retries the initial topology fetch — and, once topology succeeds, the initial favorites
+    /// fetch — until both succeed, topology comes back unauthorized/denied, or it's cancelled by
+    /// `stop()`. On each failed topology attempt it fails the gateway over to another discovered
+    /// player before backing off, so a single unreachable player doesn't block bootstrapping
+    /// forever when another one might answer.
     private func startBootstrap() {
         bootstrapTask?.cancel()
         bootstrapTask = Task { [weak self, configuration] in
             var attempt = 0
+            var favoritesLoaded = false
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.refreshTopology()
-                let status = await self.current.status
-                if status == .ready || status == .unauthorized { return }
+                if Task.isCancelled { return }
+                let checkpoint = await self.bootstrapCheckpoint()
+                guard checkpoint.started else { return }
+                switch checkpoint.status {
+                case .unauthorized, .localNetworkDenied:
+                    return
+                case .ready:
+                    if !favoritesLoaded {
+                        favoritesLoaded = await self.refreshFavorites()
+                    }
+                    if favoritesLoaded { return }
+                default:
+                    // Topology itself failed; another discovered player might answer.
+                    await self.rotateGateway()
+                }
                 if Task.isCancelled { return }
                 try? await Task.sleep(for: configuration.backoff.delay(attempt: attempt, random: Double.random(in: 0...1)))
                 attempt += 1
             }
         }
+    }
+
+    /// Cancels any running bootstrap loop and starts a fresh discovery timeout, so a bootstrap
+    /// that fails again after a recovery attempt still eventually reports `.noPlayersFound`
+    /// instead of leaving the UI stuck on `.discovering` forever.
+    private func armDiscoveryTimeout() {
+        timeoutTask?.cancel()
+        timeoutTask = Task { [weak self, configuration] in
+            do {
+                try await Task.sleep(for: configuration.discoveryTimeout)
+            } catch {
+                return
+            }
+            await self?.discoveryTimedOut()
+        }
+    }
+
+    /// Snapshot of the state a running bootstrap loop needs to check after crossing back onto
+    /// the actor, in one hop: whether `stop()` has run since, and the current status.
+    private func bootstrapCheckpoint() -> (started: Bool, status: HouseholdStatus) {
+        (started, snapshot.status)
+    }
+
+    /// Moves `gatewayID` to the next known, not-yet-removed player address (sorted ids, wrapping
+    /// around), so a persistently-unreachable gateway doesn't block bootstrapping forever when
+    /// another already-discovered player might answer.
+    private func rotateGateway() {
+        let candidates = addresses.keys.filter { !removedPlayers.contains($0) }.sorted()
+        guard candidates.count > 1, let current = gatewayID,
+              let currentIndex = candidates.firstIndex(of: current) else { return }
+        let nextIndex = candidates.index(after: currentIndex)
+        let next = candidates[nextIndex == candidates.endIndex ? candidates.startIndex : nextIndex]
+        guard next != current else { return }
+        logger.info("bootstrap failing over gateway from \(current, privacy: .public) to \(next, privacy: .public)")
+        gatewayID = next
     }
 
     private func discoveryTimedOut() {
@@ -214,6 +264,9 @@ public actor Household {
         logger.info("fetching topology from \(gateway, privacy: .public)")
         do {
             let response = try await api.groups(from: gateway)
+            // `stop()` may have run while this request was in flight; don't resurrect sockets
+            // or otherwise touch state for a Household that's no longer running.
+            guard started, !Task.isCancelled else { return }
             allowTrust(forWirePlayers: response.players)
             let filtered = excludingRemovedPlayers(groups: response.groups, players: response.players)
             apply(.topology(groups: filtered.groups, players: filtered.players))
@@ -221,7 +274,11 @@ public actor Household {
                 addresses[player.id] = player.address
                 trustStore?.allow(host: player.address)
             }
-            if snapshot.status != .ready { apply(.status(.ready)) }
+            // A late success arriving after Local Network access was denied must not paper over
+            // that status with `.ready`.
+            if snapshot.status != .ready && snapshot.status != .localNetworkDenied {
+                apply(.status(.ready))
+            }
             await ensureSockets()
             await reconcileSubscriptions()
             await probeSubs()
@@ -235,10 +292,18 @@ public actor Household {
         }
     }
 
-    private func refreshFavorites() async {
-        guard let gateway = gatewayAddress() else { return }
-        if let favorites = try? await api.favorites(from: gateway) {
+    /// Fetches favorites once; returns whether it succeeded so the bootstrap loop can retry it
+    /// alongside topology until both have loaded at least once.
+    @discardableResult
+    private func refreshFavorites() async -> Bool {
+        guard let gateway = gatewayAddress() else { return false }
+        do {
+            let favorites = try await api.favorites(from: gateway)
             apply(.favorites(favorites))
+            return true
+        } catch {
+            logger.error("favorites fetch from \(gateway, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            return false
         }
     }
 

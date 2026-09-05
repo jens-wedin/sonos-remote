@@ -5,8 +5,8 @@ import KeyboardShortcuts
 
 @main
 struct SonosRemoteApp: App {
-    @State private var appState = AppState.live()
-    @State private var panel = PanelController()
+    @State private var appState: AppState
+    @State private var panel: PanelController
 
     init() {
         let panel = PanelController()

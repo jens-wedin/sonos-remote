@@ -235,10 +235,34 @@ import Testing
         for await snapshot in stream where snapshot.status == .noPlayersFound { break }
         #expect(await h.household.current.status == .noPlayersFound)
 
-        h.transport.respond(whenPathContains: "/households/local/groups", body: Fixtures.data("groups.json"))
+        // Keep the stub permanently failing across the recovery `.found` so a lingering first
+        // loop (if the re-bootstrap branch didn't actually cancel and replace it) could not be
+        // what eventually reaches `.ready` below; the transition below must come from a real
+        // noPlayersFound -> discovering re-bootstrap.
         h.discovery.emit(.found(stereo))
+        var statusesAfterRecovery: [HouseholdStatus] = []
+        for await snapshot in stream {
+            statusesAfterRecovery.append(snapshot.status)
+            if snapshot.status == .discovering { break }
+        }
+        #expect(statusesAfterRecovery.contains(.discovering))
+
+        h.transport.respond(whenPathContains: "/households/local/groups", body: Fixtures.data("groups.json"))
         for await snapshot in stream where snapshot.status == .ready { break }
         #expect(await h.household.current.status == .ready)
+        await h.household.stop()
+    }
+
+    @Test func bootstrapFailsOverToAnotherDiscoveredPlayer() async throws {
+        let h = Harness(backoff: Backoff(base: .milliseconds(5), max: .milliseconds(5), jitter: 0))
+        h.transport.respond(whenPathContains: "192.168.1.105", status: 500, body: Data())
+        h.transport.respond(whenPathContains: "192.168.1.216", body: Fixtures.data("groups.json"))
+        let stream = await h.household.snapshots()
+        await h.household.start()
+        h.discovery.emit(.found(stereo))
+        h.discovery.emit(.found(DiscoveredPlayer(id: "RINCON_542A1B73A25001400", address: "192.168.1.216", householdID: nil)))
+        for await snapshot in stream where snapshot.status == .ready { break }
+        #expect(h.transport.requests(matching: "192.168.1.216").contains { $0.url.absoluteString.contains("/households/local/groups") })
         await h.household.stop()
     }
 }
