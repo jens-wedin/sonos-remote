@@ -20,7 +20,8 @@ public enum DiscoveryEvent: Hashable, Sendable {
 }
 
 public protocol Discovering: Sendable {
-    /// Starts browsing on first call. Ends when `stop()` is called.
+    /// Starts (or restarts) browsing on each call. The stream ends when `stop()` is called
+    /// or `events()` is called again.
     func events() -> AsyncStream<DiscoveryEvent>
     func stop()
 }

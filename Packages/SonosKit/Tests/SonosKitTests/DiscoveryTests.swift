@@ -1,3 +1,4 @@
+import Synchronization
 import Testing
 @testable import SonosKit
 
@@ -27,5 +28,36 @@ import Testing
         discovery.emit(.lost(playerID: "RINCON_1"))
         #expect(await iterator.next() == .found(DiscoveredPlayer(id: "RINCON_1", address: "192.168.1.5", householdID: nil)))
         #expect(await iterator.next() == .lost(playerID: "RINCON_1"))
+    }
+
+    @Test func stopEndsTheEventStream() async throws {
+        let discovery = BonjourDiscovery()
+        let stream = discovery.events()
+        discovery.stop()
+
+        let finished = Mutex(false)
+        Task {
+            var iterator = stream.makeAsyncIterator()
+            while await iterator.next() != nil {}
+            finished.withLock { $0 = true }
+        }
+
+        try await waitUntil { finished.withLock { $0 } }
+    }
+
+    @Test func secondEventsCallEndsTheFirstStream() async throws {
+        let discovery = BonjourDiscovery()
+        let firstStream = discovery.events()
+        _ = discovery.events()
+
+        let finished = Mutex(false)
+        Task {
+            var iterator = firstStream.makeAsyncIterator()
+            while await iterator.next() != nil {}
+            finished.withLock { $0 = true }
+        }
+
+        try await waitUntil { finished.withLock { $0 } }
+        discovery.stop()
     }
 }

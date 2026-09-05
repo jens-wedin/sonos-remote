@@ -8,7 +8,15 @@ public final class BonjourDiscovery: Discovering, @unchecked Sendable {
     public static let serviceType = "_sonos._tcp"
     private static let policyDenied: Int32 = -65570 // kDNSServiceErr_PolicyDenied
 
-    private let browser = Mutex<NWBrowser?>(nil)
+    /// A browser and the continuation that feeds its stream, kept together so `stop()` and a
+    /// replacing `events()` call can always finish the continuation that goes with the browser
+    /// they're cancelling.
+    private struct Session {
+        var browser: NWBrowser
+        var continuation: AsyncStream<DiscoveryEvent>.Continuation
+    }
+
+    private let session = Mutex<Session?>(nil)
 
     public init() {}
 
@@ -22,13 +30,26 @@ public final class BonjourDiscovery: Discovering, @unchecked Sendable {
     public func events() -> AsyncStream<DiscoveryEvent> {
         let (stream, continuation) = AsyncStream<DiscoveryEvent>.makeStream()
         let browser = NWBrowser(for: .bonjourWithTXTRecord(type: Self.serviceType, domain: nil), using: NWParameters())
+        // Latches .permissionDenied to a single yield per browser/stream: NWBrowser retries
+        // periodically while .waiting, which would otherwise re-report the same denial.
+        let permissionDeniedSent = Mutex(false)
 
         browser.stateUpdateHandler = { state in
-            if case .waiting(let error) = state, case .dns(let code) = error, code == Self.policyDenied {
-                continuation.yield(.permissionDenied)
-            }
-            if case .failed(let error) = state, case .dns(let code) = error, code == Self.policyDenied {
-                continuation.yield(.permissionDenied)
+            switch state {
+            case .waiting(let error), .failed(let error):
+                guard case .dns(let code) = error, code == Self.policyDenied else { return }
+                let alreadySent = permissionDeniedSent.withLock { sent -> Bool in
+                    defer { sent = true }
+                    return sent
+                }
+                if !alreadySent { continuation.yield(.permissionDenied) }
+            case .cancelled:
+                // Ensures the stream ends even when cancellation is driven from outside
+                // events()/stop() (e.g. the continuation's own onTermination). Finishing an
+                // already-finished continuation is a no-op.
+                continuation.finish()
+            default:
+                break
             }
         }
 
@@ -48,16 +69,23 @@ public final class BonjourDiscovery: Discovering, @unchecked Sendable {
         }
 
         continuation.onTermination = { _ in browser.cancel() }
-        self.browser.withLock { old in
-            old?.cancel()
-            old = browser
+        session.withLock { current in
+            // Replacing a still-open session: finish its stream immediately rather than
+            // waiting on the async .cancelled callback from the browser we're tearing down.
+            current?.continuation.finish()
+            current?.browser.cancel()
+            current = Session(browser: browser, continuation: continuation)
         }
         browser.start(queue: DispatchQueue(label: "sonoskit.bonjour"))
         return stream
     }
 
     public func stop() {
-        browser.withLock { $0?.cancel(); $0 = nil }
+        session.withLock { current in
+            current?.browser.cancel()
+            current?.continuation.finish()
+            current = nil
+        }
     }
 
     private static func player(from result: NWBrowser.Result) -> DiscoveredPlayer? {
