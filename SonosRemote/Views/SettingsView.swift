@@ -11,6 +11,7 @@ struct SettingsView: View {
             Toggle("Launch at login", isOn: $launchAtLogin)
                 .toggleStyle(.switch)
                 .onChange(of: launchAtLogin) { _, on in
+                    guard on != (SMAppService.mainApp.status == .enabled) else { return }
                     do {
                         if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
                         loginError = nil
