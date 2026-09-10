@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-10
+
 ### Changed
 - The app is now called "Remote for Sonos" (display name and Settings window title); the bundle identifier and executable name are unchanged.
 - Release builds are signed with Developer ID and use the hardened runtime; the version comes from `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`.

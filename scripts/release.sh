@@ -138,10 +138,12 @@ if [[ ! -d "$TAP_DIR/.git" ]]; then
   gh repo clone "$TAP_REPO" "$TAP_DIR" >/dev/null
 fi
 mkdir -p "$TAP_DIR/Casks"
+# A freshly created tap repository is empty: make sure we are on main and set the upstream on first push.
+git -C "$TAP_DIR" rev-parse -q --verify HEAD >/dev/null 2>&1 || git -C "$TAP_DIR" checkout -q -B main
 sed -e "s/__VERSION__/$VERSION/" -e "s/__SHA256__/$SHA256/" packaging/remote-for-sonos.rb > "$TAP_DIR/Casks/remote-for-sonos.rb"
 git -C "$TAP_DIR" add Casks/remote-for-sonos.rb
 git -C "$TAP_DIR" commit -q -m "remote-for-sonos $VERSION" || echo "cask unchanged"
-git -C "$TAP_DIR" push -q
+git -C "$TAP_DIR" push -q -u origin HEAD
 echo "install with: brew install --cask jens-wedin/tap/remote-for-sonos"
 
 say "Released $APP_NAME $VERSION"
