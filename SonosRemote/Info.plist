@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sonos Remote</string>
+	<string>Remote for Sonos</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,13 +13,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Sonos Remote</string>
+	<string>Remote for Sonos</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
 	<key>LSUIElement</key>
@@ -33,7 +35,9 @@
 	<array>
 		<string>_sonos._tcp</string>
 	</array>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Jens Wedin. Not affiliated with Sonos, Inc.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Sonos Remote finds and controls your Sonos speakers on the local network.</string>
+	<string>Remote for Sonos finds and controls your Sonos speakers on the local network.</string>
 </dict>
 </plist>
