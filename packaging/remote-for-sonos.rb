@@ -9,7 +9,7 @@ cask "remote-for-sonos" do
   desc "Menu bar controller for Sonos speakers on the local network"
   homepage "https://github.com/jens-wedin/sonos-remote"
 
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Remote for Sonos.app"
 
