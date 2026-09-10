@@ -87,6 +87,7 @@ xcodegen generate >/dev/null
 say "Archive (Release)"
 xcodebuild archive \
   -project "$PRODUCT.xcodeproj" -scheme "$PRODUCT" -configuration Release \
+  -destination 'generic/platform=macOS' \
   -archivePath "$ARCHIVE" -derivedDataPath "$REPO_ROOT/.build/xcode-release" \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGN_IDENTITY="$IDENTITY" DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Manual \
