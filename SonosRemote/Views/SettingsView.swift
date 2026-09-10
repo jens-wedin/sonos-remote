@@ -30,6 +30,6 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 380)
         .padding(.vertical, 8)
-        .navigationTitle("Sonos Remote Settings")
+        .navigationTitle(SettingsOpener.windowTitle)
     }
 }

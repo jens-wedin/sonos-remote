@@ -1,8 +1,20 @@
-# Sonos Remote
+# Remote for Sonos
 
 A native macOS menu bar app that controls a Sonos S2 system over the local network. No Sonos account, no cloud.
 
-Every group in the house is a row; the open row has transport, per-speaker volume, favorites, EQ, and grouping. Speakers are found with Bonjour and driven through the local Control API on port 1443 (REST + websocket). EQ uses UPnP on port 1400. Personal project by Jens Wedin. Built for macOS 26.
+Every group in the house is a row; the open row has transport, per-speaker volume, favorites, EQ, and grouping. Speakers are found with Bonjour and driven through the local Control API on port 1443 (REST + websocket). EQ uses UPnP on port 1400. By Jens Wedin, MIT licensed. Not affiliated with or endorsed by Sonos, Inc.
+
+## Install
+
+Requires macOS 26 or later.
+
+    brew install --cask jens-wedin/tap/remote-for-sonos
+
+Or download `Remote-for-Sonos-<version>.zip` from the [Releases page](https://github.com/jens-wedin/sonos-remote/releases), unzip it, and move `Remote for Sonos.app` to your Applications folder. The app is signed with a Developer ID and notarized, so it opens without warnings.
+
+On first launch macOS asks whether the app may find devices on your local network. Allow it; without that permission no speakers are found. The app lives in the menu bar and has no Dock icon; quit it from the panel's Quit button.
+
+The app talks to the speakers through Sonos's local Control API, which Sonos does not document for third parties. A future speaker firmware could change it.
 
 ## Features (v0.1.0)
 
@@ -37,13 +49,8 @@ See `knowledge/procedural/build-and-run.md`. Short version:
 
 Before tagging a release, also run through `knowledge/procedural/manual-test-checklist.md` against real speakers.
 
-## Signing
+## Signing and releases
 
-The app is signed **manually** with the owner's Apple Development identity, not ad-hoc — an ad-hoc signature changes on every rebuild, which invalidates macOS's Local Network permission grant each time. `project.yml` sets:
+Debug builds are signed **manually** with the owner's Apple Development identity, not ad-hoc — an ad-hoc signature changes on every rebuild, which invalidates macOS's Local Network permission grant each time. Release builds are signed with `Developer ID Application`, use the hardened runtime, and are notarized. Both are configured in `project.yml`; the team is FDBYWW84AR. See `knowledge/procedural/build-and-run.md` for the team-ID gotcha.
 
-    CODE_SIGN_STYLE: Manual
-    CODE_SIGN_IDENTITY: "Apple Development: hello@jenswedin.com (4B85FPKBH8)"
-    DEVELOPMENT_TEAM: FDBYWW84AR
-    PROVISIONING_PROFILE_SPECIFIER: ""
-
-This needs no Xcode account and no provisioning profile — the app is sandboxed with only the network-client entitlement. See the "Signing" section of `knowledge/procedural/build-and-run.md` for the team-ID gotcha and the exact verification commands.
+Releases are cut with `scripts/release.sh <version>`, which archives, signs, notarizes, staples, zips, publishes a GitHub Release (creating the `v<version>` tag), and updates the Homebrew cask in `jens-wedin/homebrew-tap`. The one-time setup and the full procedure are in `knowledge/procedural/release.md`.

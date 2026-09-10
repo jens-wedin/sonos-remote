@@ -20,10 +20,21 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     CODE_SIGN_STYLE: Manual
-    CODE_SIGN_IDENTITY: "Apple Development: hello@jenswedin.com (4B85FPKBH8)"
     DEVELOPMENT_TEAM: FDBYWW84AR
     PROVISIONING_PROFILE_SPECIFIER: ""
-    ENABLE_HARDENED_RUNTIME: NO
+    # Single source of truth for the version; scripts/release.sh overrides both on the command line.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+  configs:
+    # Debug: the owner's development identity, stable across rebuilds so the Local Network grant survives.
+    # Hardened runtime stays off so the test host can be injected.
+    Debug:
+      CODE_SIGN_IDENTITY: "Apple Development: hello@jenswedin.com (4B85FPKBH8)"
+      ENABLE_HARDENED_RUNTIME: NO
+    # Release: Developer ID for distribution outside the App Store; notarization requires the hardened runtime.
+    Release:
+      CODE_SIGN_IDENTITY: "Developer ID Application"
+      ENABLE_HARDENED_RUNTIME: YES
 targets:
   SonosRemote:
     type: application
@@ -38,13 +49,15 @@ targets:
     info:
       path: SonosRemote/Info.plist
       properties:
-        CFBundleDisplayName: Sonos Remote
-        CFBundleName: Sonos Remote
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleDisplayName: Remote for Sonos
+        CFBundleName: Remote for Sonos
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSHumanReadableCopyright: "© 2026 Jens Wedin. Not affiliated with Sonos, Inc."
+        LSApplicationCategoryType: public.app-category.music
         LSUIElement: true
         LSMinimumSystemVersion: "26.0"
-        NSLocalNetworkUsageDescription: Sonos Remote finds and controls your Sonos speakers on the local network.
+        NSLocalNetworkUsageDescription: Remote for Sonos finds and controls your Sonos speakers on the local network.
         NSBonjourServices:
           - _sonos._tcp
         NSAppTransportSecurity:

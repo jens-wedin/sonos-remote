@@ -12,7 +12,7 @@ import os
 @MainActor
 final class SettingsOpener {
     static let windowID = "settings"
-    static let windowTitle = "Sonos Remote Settings"
+    static let windowTitle = "Remote for Sonos Settings"
 
     private var observer: (any NSObjectProtocol)?
     private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "settings")

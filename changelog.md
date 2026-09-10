@@ -5,7 +5,14 @@ All notable changes to this project are documented here. Format follows Keep a C
 ## [Unreleased]
 
 ### Changed
+- The app is now called "Remote for Sonos" (display name and Settings window title); the bundle identifier and executable name are unchanged.
+- Release builds are signed with Developer ID and use the hardened runtime; the version comes from `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`.
 - Rows are ordered with playing (or buffering) groups first, then the rest, each tier alphabetical, so the room that is making sound is always at the top of the panel.
+
+### Added
+- `scripts/release.sh`: archive, sign, notarize, staple, zip, publish a GitHub Release, and update the Homebrew cask. Procedure in `knowledge/procedural/release.md`.
+- Homebrew cask template (`packaging/remote-for-sonos.rb`) for `brew install --cask jens-wedin/tap/remote-for-sonos`.
+- MIT `LICENSE`.
 
 ### Fixed
 - "Settings…" did nothing visible: the Settings scene opened behind other windows from the Dock-less app. Settings is now a regular window that the app opens and brings to the front, returning to menu-bar-only mode when it closes.
