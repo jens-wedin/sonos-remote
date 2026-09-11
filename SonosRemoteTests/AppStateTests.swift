@@ -5,13 +5,14 @@ import SonosKit
 
 @MainActor
 @Suite struct AppStateTests {
-    func makeAppState(clearDelay: Duration = .seconds(3)) -> AppState {
+    func makeAppState(clearDelay: Duration = .seconds(3), tickInterval: Duration = .seconds(1)) -> AppState {
         let transport = URLSessionTransport()
         let household = Household(discovery: BonjourDiscovery(), transport: transport)
         return AppState(
             household: household,
             defaults: UserDefaults(suiteName: "AppStateTests-\(UUID())")!,
-            clearDelay: clearDelay
+            clearDelay: clearDelay,
+            tickInterval: tickInterval
         )
     }
 
@@ -37,49 +38,65 @@ import SonosKit
     @Test func firstSnapshotOpensPlayingGroup() {
         let appState = makeAppState()
         appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
-        #expect(appState.openGroupID == "b")
+        #expect(appState.selectedGroupID == "b")
     }
 
     @Test func openRowIsKeptWhileItExists() {
         let appState = makeAppState()
         appState.apply(snapshot([group("a", .idle), group("b", .idle)]))
-        #expect(appState.openGroupID == "a")
+        #expect(appState.selectedGroupID == "a")
         appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
-        #expect(appState.openGroupID == "a")
+        #expect(appState.selectedGroupID == "a")
     }
 
     @Test func vanishedOpenRowReresolves() {
         let appState = makeAppState()
         appState.apply(snapshot([group("a", .idle), group("b", .idle)]))
-        #expect(appState.openGroupID == "a")
+        #expect(appState.selectedGroupID == "a")
         appState.apply(snapshot([group("b", .playing), group("c", .idle)]))
-        #expect(appState.openGroupID == "b")
+        #expect(appState.selectedGroupID == "b")
     }
 
-    @Test func userClosedRowStaysClosedWithoutTopologyChange() {
+    @Test func selectingAnotherGroupChangesTheSelection() {
         let appState = makeAppState()
-        let groups = [group("a", .idle), group("b", .playing)]
-        appState.apply(snapshot(groups))
-        #expect(appState.openGroupID == "b")
-        appState.toggleRow("b")
-        #expect(appState.openGroupID == nil)
-
-        appState.apply(snapshot([group("a", .playing), group("b", .idle)]))
-        #expect(appState.openGroupID == nil)
+        appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
+        appState.select("a")
+        #expect(appState.selectedGroupID == "a")
+        appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
+        #expect(appState.selectedGroupID == "a")
     }
 
-    @Test func userClosedRowReopensOnTopologyChange() {
+    @Test func screensSwitchAndBackReturnsToMain() {
         let appState = makeAppState()
-        let groups = [group("a", .idle), group("b", .playing)]
-        appState.apply(snapshot(groups))
-        #expect(appState.openGroupID == "b")
-        appState.toggleRow("b")
-        #expect(appState.openGroupID == nil)
+        #expect(appState.screen == .main)
+        appState.show(.sound)
+        #expect(appState.screen == .sound)
+        appState.show(.sound)
+        #expect(appState.screen == .main, "tapping the active screen's icon returns to main")
+        appState.show(.favorites)
+        appState.back()
+        #expect(appState.screen == .main)
+    }
 
-        let newGroups = [group("x", .idle), group("y", .playing)]
-        appState.apply(snapshot(newGroups))
-        #expect(appState.openGroupID != nil)
-        #expect(appState.openGroupID == RowOpenPolicy.resolve(remembered: nil, groups: newGroups))
+    @Test func openingFavoritesTargetsTheSelectedRoomAndSoundTargetsItsCoordinator() {
+        let appState = makeAppState()
+        appState.apply(snapshot([Group(id: "g", name: "g", coordinatorID: "p1", playerIDs: ["p1", "p2"], playbackState: .playing, volume: .silent, nowPlaying: nil)]))
+        appState.show(.favorites)
+        #expect(appState.favoritesTargetGroupID == "g")
+        appState.show(.sound)
+        #expect(appState.soundPlayerID == "p1")
+    }
+
+    @Test func tickRunsOnlyWhilePresentedAndPlaying() async throws {
+        let appState = makeAppState(tickInterval: .milliseconds(20))
+        appState.apply(snapshot([group("a", .playing)]))
+        appState.setPanelPresented(true)
+        try await Task.sleep(for: .milliseconds(120))
+        #expect(appState.tick >= 3)
+        appState.setPanelPresented(false)
+        let frozen = appState.tick
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(appState.tick == frozen)
     }
 
     @Test func repeatedIdenticalErrorsKeepTheBannerUntilTheLastOneExpires() async throws {

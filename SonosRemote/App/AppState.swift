@@ -7,24 +7,11 @@ extension PlaybackState {
     var isActive: Bool { self == .playing || self == .buffering }
 }
 
-enum OpenRowTab: String, CaseIterable, Identifiable {
-    case favorites, eq, group
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .favorites: "Favorites"
-        case .eq: "EQ"
-        case .group: "Group"
-        }
-    }
-}
-
 @MainActor @Observable
 final class AppState {
     private(set) var snapshot = HouseholdSnapshot()
 
     /// Groups for display: the ones playing (or about to) first, then the rest, each tier by name.
-    /// The reducer keeps `snapshot.groups` in plain name order so this is purely presentational.
     var orderedGroups: [Group] {
         snapshot.groups.sorted { lhs, rhs in
             let lhsActive = lhs.playbackState.isActive
@@ -33,35 +20,43 @@ final class AppState {
             return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
     }
-    /// The one open row. nil only when the user closed it or nothing is discovered.
-    var openGroupID: String? {
-        didSet { defaults.set(openGroupID, forKey: Self.openGroupKey) }
+
+    /// The one room every screen shows. Never nil while groups exist.
+    var selectedGroupID: String? {
+        didSet { defaults.set(selectedGroupID, forKey: Self.selectedGroupKey) }
     }
-    var selectedTab: OpenRowTab = .favorites
-    /// Player whose EQ the EQ tab shows (matters for multi-player groups).
-    var eqPlayerID: String?
+    var selectedGroup: Group? { selectedGroupID.flatMap { snapshot.group($0) } }
+
+    // Navigation and per-screen state.
+    private(set) var screen: Screen = .main
+    var favoritesSearch = ""
+    var favoritesTargetGroupID: String?
+    var soundPlayerID: String?
     var eqByPlayer: [String: EQSettings] = [:]
     var rowErrors: [String: String] = [:]
 
-    /// Replaced by `retryDiscovery()` (Task 18); everything else reads it at call time.
+    /// Increments once per second while the panel is visible and the selected group is playing;
+    /// views read it so the progress bar re-renders between speaker reports.
+    private(set) var tick = 0
+
     private(set) var household: Household
     private let defaults: UserDefaults
     private let clearDelay: Duration
+    private let tickInterval: Duration
     private var consumeTask: Task<Void, Never>?
-    private var resolvedInitialRow = false
-    /// Group ids seen in the last applied snapshot. Used to tell a topology change (which may
-    /// reopen a user-closed row) apart from a plain state update (which must not).
+    private var tickTask: Task<Void, Never>?
+    private var panelPresented = false
+    private var resolvedInitialSelection = false
     private var lastGroupIDs: Set<String> = []
-    /// Bumped on every `report` for a row so a stale delayed clear (from an earlier error that
-    /// happens to render the same message) can't clear a newer one.
     private var errorGeneration: [String: Int] = [:]
-    private static let openGroupKey = "openGroupID"
+    private static let selectedGroupKey = "selectedGroupID"
 
-    init(household: Household, defaults: UserDefaults = .standard, clearDelay: Duration = .seconds(3)) {
+    init(household: Household, defaults: UserDefaults = .standard, clearDelay: Duration = .seconds(3), tickInterval: Duration = .seconds(1)) {
         self.household = household
         self.defaults = defaults
         self.clearDelay = clearDelay
-        self.openGroupID = defaults.string(forKey: Self.openGroupKey)
+        self.tickInterval = tickInterval
+        self.selectedGroupID = defaults.string(forKey: Self.selectedGroupKey)
     }
 
     static func live() -> AppState {
@@ -69,6 +64,8 @@ final class AppState {
         let household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
         return AppState(household: household)
     }
+
+    // MARK: Lifecycle
 
     func start() {
         guard consumeTask == nil else { return }
@@ -80,11 +77,11 @@ final class AppState {
         }
     }
 
-    /// Tears the household down and starts discovery again (used by the "No Sonos found" state).
+    /// Tears the household down and starts discovery again (Settings → refresh, "No Sonos found" → Retry).
     func retryDiscovery() {
         consumeTask?.cancel()
         consumeTask = nil
-        resolvedInitialRow = false
+        resolvedInitialSelection = false
         let old = household
         Task { await old.stop() }
         let transport = URLSessionTransport()
@@ -98,37 +95,55 @@ final class AppState {
         guard !snapshot.groups.isEmpty else { return }
         let groupIDs = Set(snapshot.groups.map(\.id))
         let topologyChanged = groupIDs != lastGroupIDs
-        let openStillExists = openGroupID.map { id in snapshot.groups.contains { $0.id == id } } ?? false
-        let shouldResolve: Bool
-        if openStillExists {
-            // Keep the open row.
-            shouldResolve = false
-        } else if openGroupID != nil {
-            // The open row vanished; always resolve to a new one.
-            shouldResolve = true
-        } else {
-            // Nothing is open: resolve on the very first snapshot, or once the topology has
-            // changed since the user closed the row. Otherwise the closed state persists.
-            shouldResolve = !resolvedInitialRow || topologyChanged
+        let stillExists = selectedGroupID.map { id in snapshot.groups.contains { $0.id == id } } ?? false
+        if !stillExists || !resolvedInitialSelection || (topologyChanged && selectedGroupID == nil) {
+            selectedGroupID = SelectionPolicy.resolve(remembered: selectedGroupID, groups: snapshot.groups)
         }
-        if shouldResolve {
-            openGroupID = RowOpenPolicy.resolve(remembered: openGroupID, groups: snapshot.groups)
-        }
-        resolvedInitialRow = true
+        resolvedInitialSelection = true
         lastGroupIDs = groupIDs
-        if let open = openGroupID, let group = snapshot.group(open), !group.playerIDs.contains(eqPlayerID ?? "") {
-            eqPlayerID = group.coordinatorID
+        if let group = selectedGroup, !group.playerIDs.contains(soundPlayerID ?? "") {
+            soundPlayerID = group.coordinatorID
         }
+        updateTicking()
     }
 
-    // MARK: Row state
+    // MARK: Selection and navigation
 
-    func toggleRow(_ groupID: String) {
-        if openGroupID == groupID {
-            openGroupID = nil
-        } else {
-            openGroupID = groupID
-            eqPlayerID = snapshot.group(groupID)?.coordinatorID
+    func select(_ groupID: String) {
+        guard snapshot.group(groupID) != nil else { return }
+        selectedGroupID = groupID
+        soundPlayerID = snapshot.group(groupID)?.coordinatorID
+        updateTicking()
+    }
+
+    /// Header icons: tapping the active screen's icon returns to main.
+    func show(_ target: Screen) {
+        let next: Screen = (target == screen) ? .main : target
+        if next == .favorites { favoritesTargetGroupID = selectedGroupID; favoritesSearch = "" }
+        if next == .sound { soundPlayerID = selectedGroup?.coordinatorID }
+        screen = next
+    }
+
+    func back() { screen = .main }
+
+    func setPanelPresented(_ presented: Bool) {
+        panelPresented = presented
+        updateTicking()
+    }
+
+    private func updateTicking() {
+        let shouldTick = panelPresented && selectedGroup?.playbackState == .playing
+        if shouldTick, tickTask == nil {
+            tickTask = Task { [tickInterval] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: tickInterval)
+                    if Task.isCancelled { break }
+                    self.tick &+= 1
+                }
+            }
+        } else if !shouldTick, let task = tickTask {
+            task.cancel()
+            tickTask = nil
         }
     }
 
@@ -143,6 +158,8 @@ final class AppState {
     func pause(group id: String) { run(id) { try await self.household.pause(group: id) } }
     func next(group id: String) { run(id) { try await self.household.next(group: id) } }
     func previous(group id: String) { run(id) { try await self.household.previous(group: id) } }
+    func setShuffle(_ on: Bool, group id: String) { run(id) { try await self.household.setShuffle(on, group: id) } }
+    func setRepeat(_ on: Bool, group id: String) { run(id) { try await self.household.setRepeat(on, group: id) } }
 
     func setGroupVolume(_ level: Int, group id: String) { run(id) { try await self.household.setGroupVolume(level, group: id) } }
     func setGroupMuted(_ muted: Bool, group id: String) { run(id) { try await self.household.setGroupMuted(muted, group: id) } }
@@ -179,6 +196,19 @@ final class AppState {
         run(snapshot.group(containing: player)?.id ?? player) { try await self.household.setEQ(eq, player: player) }
     }
 
+    func applyPreset(_ preset: TonePreset, player: String) {
+        guard let current = eqByPlayer[player] else { return }
+        updateEQ(preset.applied(to: current), player: player)
+    }
+
+    func resetTone(player: String) {
+        guard var eq = eqByPlayer[player] else { return }
+        eq.bass = 0
+        eq.treble = 0
+        if eq.subGain != nil { eq.subGain = 0 }
+        updateEQ(eq, player: player)
+    }
+
     // MARK: Errors
 
     private func run(_ groupID: String, _ operation: @escaping @Sendable () async throws -> Void) {
@@ -193,7 +223,7 @@ final class AppState {
         let generation = (errorGeneration[groupID] ?? 0) + 1
         errorGeneration[groupID] = generation
         rowErrors[groupID] = Self.message(for: error)
-        Task {
+        Task { [clearDelay] in
             try? await Task.sleep(for: clearDelay)
             if errorGeneration[groupID] == generation { rowErrors[groupID] = nil }
         }
