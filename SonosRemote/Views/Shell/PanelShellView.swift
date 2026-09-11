@@ -13,7 +13,7 @@ struct PanelShellView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HeaderView()
+            HeaderView(focus: $focus)
             Divider()
             ScrollView {
                 screenView
@@ -26,7 +26,7 @@ struct PanelShellView: View {
             FooterView()
         }
         .frame(width: 420)
-        .defaultFocus($focus, .playPause)
+        .defaultFocus($focus, state.screen == .main ? .playPause : .back)
         .onExitCommand(perform: closePanel)
         .onChange(of: panel.isPresented, initial: true) { _, presented in state.setPanelPresented(presented) }
         // Belt-and-braces: if the panel's window is torn down without `panel.isPresented`

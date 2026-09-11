@@ -3,6 +3,7 @@ import SonosKit
 
 struct HeaderView: View {
     @Environment(AppState.self) private var state
+    let focus: FocusState<PanelFocus?>.Binding
 
     var body: some View {
         HStack(spacing: 8) {
@@ -21,6 +22,7 @@ struct HeaderView: View {
                 }
                 .buttonStyle(.plain)
                 .focusable()
+                .focused(focus, equals: .back)
                 .accessibilityLabel("Back")
                 .keyboardShortcut("[", modifiers: .command)
                 Artwork(url: state.selectedGroup?.nowPlaying?.artworkURL, size: 22)
