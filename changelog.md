@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-11
+
 ### Changed
 - New panel design (420 pt): a hero for one selected room with artwork, title, artist and album, a progress bar with elapsed and remaining time, shuffle and repeat next to the transport, the group volume, and a compact rooms list; playing rooms still sort first. Selecting a room replaces opening a row.
 - Favorites, Sound (EQ), Group and Settings are screens reached from the header icons and the "Group" link, with a back chevron and Cmd-[ to return; the body slides between screens.
