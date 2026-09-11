@@ -23,7 +23,15 @@ struct RoomsListView: View {
         }
         .onMoveCommand { direction in
             let ids = state.orderedGroups.map(\.id)
-            guard let current = focusedGroupID ?? state.selectedGroupID, let index = ids.firstIndex(of: current) else { return }
+            guard !ids.isEmpty else { return }
+            // Nothing focused yet (e.g. Full Keyboard Access off, so Tab never reached a row):
+            // the first arrow press only seeds focus on the already-selected row rather than
+            // also moving, so it lands where the user expects instead of skipping past it.
+            guard let current = focusedGroupID else {
+                focusedGroupID = state.selectedGroupID ?? ids.first
+                return
+            }
+            guard let index = ids.firstIndex(of: current) else { return }
             switch direction {
             case .up where index > 0: focusedGroupID = ids[index - 1]
             case .down where index + 1 < ids.count: focusedGroupID = ids[index + 1]

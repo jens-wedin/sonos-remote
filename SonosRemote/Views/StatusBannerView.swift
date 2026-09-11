@@ -16,7 +16,10 @@ struct StatusBannerView: View {
                 }
             }
         case .noPlayersFound:
-            Banner(color: .gray) {
+            // combine: false — this banner has a real interactive control (Retry); combining
+            // would demote it from a focusable button to, at best, an activate action on the
+            // merged text.
+            Banner(color: .gray, combine: false) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("No Sonos found on this network").font(.callout.weight(.semibold))
                     Text("Your Mac must be on the same Wi‑Fi or wired network as the speakers.")
@@ -45,6 +48,9 @@ struct StatusBannerView: View {
 /// The status card: a coloured dot, the content, the shared rounded background.
 private struct Banner<Content: View>: View {
     let color: Color
+    /// False when the content has its own interactive control (e.g. a Retry button): combining
+    /// would merge it into one non-interactive element and demote it below a focusable button.
+    var combine = true
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -57,6 +63,6 @@ private struct Banner<Content: View>: View {
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.top, 12)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: combine ? .combine : .contain)
     }
 }

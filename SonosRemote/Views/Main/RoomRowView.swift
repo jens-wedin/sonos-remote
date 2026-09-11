@@ -25,6 +25,10 @@ struct RoomRowView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                // Full Keyboard Access is off by default, which leaves a plain macOS button
+                // untabbable; .focusable() makes it reachable regardless, so Up/Down (via
+                // RoomsListView's onMoveCommand) and this row's own onKeyPress handlers work.
+                .focusable()
                 .focused(focus, equals: group.id)
                 .onKeyPress(.space) { state.togglePlayPause(group: group.id); return .handled }
                 .onKeyPress(.return) { state.select(group.id); return .handled }
