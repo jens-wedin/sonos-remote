@@ -24,3 +24,12 @@ struct TonePreset: Hashable, Identifiable {
         return next
     }
 }
+
+enum ToneValue {
+    /// "+3", "−2" (U+2212), "0".
+    static func string(_ value: Int) -> String {
+        if value > 0 { return "+\(value)" }
+        if value < 0 { return "−\(-value)" }
+        return "0"
+    }
+}

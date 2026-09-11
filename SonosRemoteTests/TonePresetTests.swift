@@ -20,4 +20,10 @@ import SonosKit
         let applied = TonePreset.bright.applied(to: EQSettings(bass: 0, treble: 0, loudness: true, subGain: -4))
         #expect(applied == EQSettings(bass: -2, treble: 3, loudness: true, subGain: -4))
     }
+
+    @Test func toneValuesUseSignsAndARealMinus() {
+        #expect(ToneValue.string(3) == "+3")
+        #expect(ToneValue.string(-2) == "−2")
+        #expect(ToneValue.string(0) == "0")
+    }
 }
