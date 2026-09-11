@@ -314,17 +314,31 @@ import Testing
         let socket = try #require(h.transport.socket(forHost: "192.168.1.216"))
         socket.push(#"[{"namespace":"playback:1","type":"playbackStatus","groupId":"\#(gid)"},{"playbackState":"PLAYBACK_STATE_PLAYING","positionMillis":0,"playModes":{"shuffle":false,"repeat":true},"availablePlaybackActions":{"canShuffle":true,"canRepeat":true}}]"#)
         try await waitUntil { await h.household.current.group(gid)?.progress.repeatEnabled == true }
+
+        // Test setShuffle: sends shuffle=true with repeat from snapshot (true)
         try await h.household.setShuffle(true, group: gid)
-        let request = try #require(h.transport.requests(matching: "/playback/playMode").last)
+        var request = try #require(h.transport.requests(matching: "/playback/playMode").last)
         #expect(request.url.host() == "192.168.1.216")
-        guard let requestBody = request.body else {
-            Issue.record("Request has no body")
-            return
-        }
-        let body = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
-        let modes = try #require(body["playModes"] as? [String: Any])
+        var requestBody = try #require(request.body)
+        var body = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        var modes = try #require(body["playModes"] as? [String: Any])
         #expect(modes["shuffle"] as? Bool == true)
         #expect(modes["repeat"] as? Bool == true)
+
+        // Update snapshot to reflect the shuffle change: shuffle=true, repeat=true
+        socket.push(#"[{"namespace":"playback:1","type":"playbackStatus","groupId":"\#(gid)"},{"playbackState":"PLAYBACK_STATE_PLAYING","positionMillis":0,"playModes":{"shuffle":true,"repeat":true},"availablePlaybackActions":{"canShuffle":true,"canRepeat":true}}]"#)
+        try await waitUntil { await h.household.current.group(gid)?.progress.shuffle == true }
+
+        // Test setRepeat: sends repeat=false with shuffle from snapshot (true)
+        try await h.household.setRepeat(false, group: gid)
+        request = try #require(h.transport.requests(matching: "/playback/playMode").last)
+        #expect(request.url.host() == "192.168.1.216")
+        requestBody = try #require(request.body)
+        body = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        modes = try #require(body["playModes"] as? [String: Any])
+        #expect(modes["shuffle"] as? Bool == true)
+        #expect(modes["repeat"] as? Bool == false)
+
         await h.household.stop()
     }
 }
