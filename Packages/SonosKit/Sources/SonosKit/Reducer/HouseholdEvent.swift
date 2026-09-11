@@ -5,8 +5,8 @@ import Foundation
 enum HouseholdEvent: Hashable, Sendable {
     case status(HouseholdStatus)
     case topology(groups: [WireGroup], players: [WirePlayer])
-    case playbackStatus(groupID: String, state: PlaybackState)
-    case metadata(groupID: String, nowPlaying: NowPlaying?)
+    case playbackStatus(groupID: String, state: PlaybackState, progress: PlaybackProgress)
+    case metadata(groupID: String, nowPlaying: NowPlaying?, durationMillis: Int?)
     case groupVolume(groupID: String, volume: Volume)
     case playerVolume(playerID: String, volume: Volume)
     case favorites([Favorite])

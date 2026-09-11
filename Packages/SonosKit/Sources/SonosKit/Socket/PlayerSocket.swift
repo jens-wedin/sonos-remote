@@ -18,6 +18,7 @@ actor PlayerSocket {
 
     private let transport: any Transport
     private let backoff: Backoff
+    private let now: @Sendable () -> Date
     private let continuation: AsyncStream<Output>.Continuation
     private var desired: Set<Subscription> = []
     private var active: Set<Subscription> = []
@@ -25,7 +26,7 @@ actor PlayerSocket {
     private var runTask: Task<Void, Never>?
     private var stopped = false
 
-    init(playerID: String, address: String, transport: any Transport, backoff: Backoff = Backoff()) {
+    init(playerID: String, address: String, transport: any Transport, backoff: Backoff = Backoff(), now: @Sendable @escaping () -> Date = { Date() }) {
         self.playerID = playerID
         guard let url = URL(string: "wss://\(address):\(LocalAPIClient.port)/websocket/api") else {
             preconditionFailure("Bad socket URL for player \(playerID) at \(address)")
@@ -33,6 +34,7 @@ actor PlayerSocket {
         self.url = url
         self.transport = transport
         self.backoff = backoff
+        self.now = now
         (outputs, continuation) = AsyncStream<Output>.makeStream()
     }
 
@@ -110,7 +112,7 @@ actor PlayerSocket {
                     }
                 }
                 for try await data in connection.messages() {
-                    if let event = try? SocketFrameDecoder.decode(data) {
+                    if let event = try? SocketFrameDecoder.decode(data, now: now()) {
                         continuation.yield(.event(event))
                     }
                 }

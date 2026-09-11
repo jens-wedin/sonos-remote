@@ -44,6 +44,30 @@ public struct NowPlaying: Hashable, Sendable {
     }
 }
 
+/// Where playback is within the current item, plus play modes. Position is a point-in-time
+/// report; the app extrapolates from `reportedAt` while playing.
+public struct PlaybackProgress: Hashable, Sendable {
+    public var positionMillis: Int
+    public var durationMillis: Int?
+    public var reportedAt: Date
+    public var shuffle: Bool
+    public var repeatEnabled: Bool
+    public var canShuffle: Bool
+    public var canRepeat: Bool
+
+    public init(positionMillis: Int, durationMillis: Int?, reportedAt: Date, shuffle: Bool, repeatEnabled: Bool, canShuffle: Bool, canRepeat: Bool) {
+        self.positionMillis = positionMillis
+        self.durationMillis = durationMillis
+        self.reportedAt = reportedAt
+        self.shuffle = shuffle
+        self.repeatEnabled = repeatEnabled
+        self.canShuffle = canShuffle
+        self.canRepeat = canRepeat
+    }
+
+    public static let none = PlaybackProgress(positionMillis: 0, durationMillis: nil, reportedAt: .distantPast, shuffle: false, repeatEnabled: false, canShuffle: false, canRepeat: false)
+}
+
 public struct Player: Identifiable, Hashable, Sendable {
     public let id: String
     public var name: String
@@ -67,8 +91,9 @@ public struct Group: Identifiable, Hashable, Sendable {
     public var playbackState: PlaybackState
     public var volume: Volume
     public var nowPlaying: NowPlaying?
+    public var progress: PlaybackProgress
 
-    public init(id: String, name: String, coordinatorID: String, playerIDs: [String], playbackState: PlaybackState, volume: Volume, nowPlaying: NowPlaying?) {
+    public init(id: String, name: String, coordinatorID: String, playerIDs: [String], playbackState: PlaybackState, volume: Volume, nowPlaying: NowPlaying?, progress: PlaybackProgress = .none) {
         self.id = id
         self.name = name
         self.coordinatorID = coordinatorID
@@ -76,22 +101,38 @@ public struct Group: Identifiable, Hashable, Sendable {
         self.playbackState = playbackState
         self.volume = volume
         self.nowPlaying = nowPlaying
+        self.progress = progress
     }
 }
 
 public struct Favorite: Identifiable, Hashable, Sendable {
+    public enum Kind: String, Hashable, Sendable {
+        case station, playlist, album, other
+
+        public init(resourceType: String?) {
+            switch resourceType {
+            case "STREAM": self = .station
+            case "PLAYLIST": self = .playlist
+            case "ALBUM": self = .album
+            default: self = .other
+            }
+        }
+    }
+
     public let id: String
     public var name: String
     public var subtitle: String?
     public var imageURL: URL?
     public var serviceName: String?
+    public var kind: Kind
 
-    public init(id: String, name: String, subtitle: String? = nil, imageURL: URL? = nil, serviceName: String? = nil) {
+    public init(id: String, name: String, subtitle: String? = nil, imageURL: URL? = nil, serviceName: String? = nil, kind: Kind = .other) {
         self.id = id
         self.name = name
         self.subtitle = subtitle
         self.imageURL = imageURL
         self.serviceName = serviceName
+        self.kind = kind
     }
 }
 

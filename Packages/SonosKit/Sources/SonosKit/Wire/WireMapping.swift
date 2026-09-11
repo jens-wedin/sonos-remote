@@ -35,7 +35,23 @@ extension Favorite {
             name: wire.name,
             subtitle: wire.description,
             imageURL: wire.imageUrl.flatMap(URL.init(string:)),
-            serviceName: wire.service?.name
+            serviceName: wire.service?.name,
+            kind: Kind(resourceType: wire.resource?.type)
+        )
+    }
+}
+
+extension PlaybackProgress {
+    /// Builds a report from a playbackStatus body; duration is unknown here (it comes from metadata).
+    init(wire: WirePlaybackStatus, reportedAt: Date) {
+        self.init(
+            positionMillis: wire.positionMillis ?? 0,
+            durationMillis: nil,
+            reportedAt: reportedAt,
+            shuffle: wire.playModes?.shuffle ?? false,
+            repeatEnabled: wire.playModes?.repeat ?? false,
+            canShuffle: wire.availablePlaybackActions?.canShuffle ?? false,
+            canRepeat: wire.availablePlaybackActions?.canRepeat ?? false
         )
     }
 }

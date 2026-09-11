@@ -91,4 +91,21 @@ import Testing
         #expect(snapshot.groups.isEmpty)
         #expect(snapshot.playerVolumes.isEmpty)
     }
+
+    @Test func favoriteKindComesFromResourceType() throws {
+        let list = try decoder.decode(WireFavoritesList.self, from: Fixtures.data("favorites.json"))
+        #expect(Favorite(wire: list.items[0]).kind == .station)
+        #expect(Favorite.Kind(resourceType: "PLAYLIST") == .playlist)
+        #expect(Favorite.Kind(resourceType: "ALBUM") == .album)
+        #expect(Favorite.Kind(resourceType: nil) == .other)
+        #expect(Favorite.Kind(resourceType: "TRACK") == .other)
+    }
+
+    @Test func playbackProgressDefaults() {
+        #expect(PlaybackProgress.none.positionMillis == 0)
+        #expect(PlaybackProgress.none.durationMillis == nil)
+        #expect(!PlaybackProgress.none.shuffle && !PlaybackProgress.none.repeatEnabled)
+        let group = Group(id: "g", name: "g", coordinatorID: "p", playerIDs: ["p"], playbackState: .idle, volume: .silent, nowPlaying: nil)
+        #expect(group.progress == .none)
+    }
 }

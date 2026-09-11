@@ -27,9 +27,10 @@ import Testing
         let gid = "RINCON_542A1B73A25001400:620674909"
         #expect(events.count == 13)
         #expect(events[0] == .subscribed(namespace: "playback:1", success: true))
-        #expect(events[1] == .playbackStatus(groupID: gid, state: .playing))
+        guard case .playbackStatus(let g, let s, _) = events[1] else { Issue.record("expected playbackStatus"); return }
+        #expect(g == gid && s == .playing)
         #expect(events[2] == .subscribed(namespace: "playbackMetadata:1", success: true))
-        guard case .metadata(let metaGroup, let nowPlaying) = events[3] else { Issue.record("expected metadata"); return }
+        guard case .metadata(let metaGroup, let nowPlaying, _) = events[3] else { Issue.record("expected metadata"); return }
         #expect(metaGroup == gid)
         #expect(nowPlaying?.title == "Off the Wall")
         #expect(events[5] == .groupVolume(groupID: gid, volume: Volume(level: 5, muted: false, fixed: false)))
@@ -40,6 +41,23 @@ import Testing
         #expect(groups.allSatisfy { $0.playbackState == nil })
         #expect(events[11] == .favoritesChanged)
         #expect(events[12] == .globalError(code: "ERROR_UNSUPPORTED_NAMESPACE"))
+    }
+
+    @Test func playbackStatusCarriesPositionAndPlayModes() throws {
+        let line = Fixtures.lines("events.jsonl")[1]
+        guard case .playbackStatus(_, let state, let progress) = try SocketFrameDecoder.decode(Data(line.utf8)) else { Issue.record("expected playbackStatus"); return }
+        #expect(state == .playing)
+        #expect(progress.positionMillis == 133000)
+        #expect(progress.shuffle == false && progress.repeatEnabled == false)
+        #expect(progress.canShuffle && progress.canRepeat)
+        #expect(progress.durationMillis == nil)
+    }
+
+    @Test func metadataCarriesDuration() throws {
+        let line = Fixtures.lines("events.jsonl")[3]
+        guard case .metadata(_, let nowPlaying, let duration) = try SocketFrameDecoder.decode(Data(line.utf8)) else { Issue.record("expected metadata"); return }
+        #expect(nowPlaying?.title == "Off the Wall")
+        #expect(duration == 246000)
     }
 
     @Test func unknownTypeDoesNotThrow() throws {

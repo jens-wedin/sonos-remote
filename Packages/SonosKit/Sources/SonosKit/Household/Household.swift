@@ -15,6 +15,7 @@ public actor Household {
     public struct Configuration: Sendable {
         public var discoveryTimeout: Duration = .seconds(10)
         public var backoff = Backoff()
+        public var now: @Sendable () -> Date = { Date() }
         public init() {}
     }
 
@@ -336,7 +337,7 @@ public actor Household {
             await stopSocket(id)
         }
         for player in snapshot.players where sockets[player.id] == nil && !player.address.isEmpty {
-            let socket = PlayerSocket(playerID: player.id, address: player.address, transport: transport, backoff: configuration.backoff)
+            let socket = PlayerSocket(playerID: player.id, address: player.address, transport: transport, backoff: configuration.backoff, now: configuration.now)
             sockets[player.id] = socket
             socketTasks[player.id] = Task { [weak self] in
                 for await output in socket.outputs {
@@ -376,10 +377,10 @@ public actor Household {
             event = socketEvent
         }
         switch event {
-        case .playbackStatus(let groupID, let state):
-            apply(.playbackStatus(groupID: groupID, state: state))
-        case .metadata(let groupID, let nowPlaying):
-            apply(.metadata(groupID: groupID, nowPlaying: nowPlaying))
+        case .playbackStatus(let groupID, let state, let progress):
+            apply(.playbackStatus(groupID: groupID, state: state, progress: progress))
+        case .metadata(let groupID, let nowPlaying, let durationMillis):
+            apply(.metadata(groupID: groupID, nowPlaying: nowPlaying, durationMillis: durationMillis))
         case .groupVolume(let groupID, let volume):
             apply(.groupVolume(groupID: groupID, volume: volume))
         case .playerVolume(let id, let volume):

@@ -68,8 +68,8 @@ public struct Subscription: Hashable, Sendable {
 
 enum SocketEvent: Hashable, Sendable {
     case subscribed(namespace: String, success: Bool)
-    case playbackStatus(groupID: String, state: PlaybackState)
-    case metadata(groupID: String, nowPlaying: NowPlaying?)
+    case playbackStatus(groupID: String, state: PlaybackState, progress: PlaybackProgress)
+    case metadata(groupID: String, nowPlaying: NowPlaying?, durationMillis: Int?)
     case groupVolume(groupID: String, volume: Volume)
     case playerVolume(playerID: String, volume: Volume)
     case groups(groups: [WireGroup], players: [WirePlayer])
@@ -79,16 +79,24 @@ enum SocketEvent: Hashable, Sendable {
 }
 
 enum SocketFrameDecoder {
-    static func decode(_ data: Data) throws -> SocketEvent {
+    static func decode(_ data: Data, now: Date = Date()) throws -> SocketEvent {
         let decoder = JSONDecoder()
         let header = try decoder.decode(HeaderOnly.self, from: data).header
         switch header.type {
         case "playbackStatus":
             let frame = try decoder.decode(Frame<WirePlaybackStatus>.self, from: data)
-            return .playbackStatus(groupID: header.groupId ?? "", state: PlaybackState(wireValue: frame.body.playbackState))
+            return .playbackStatus(
+                groupID: header.groupId ?? "",
+                state: PlaybackState(wireValue: frame.body.playbackState),
+                progress: PlaybackProgress(wire: frame.body, reportedAt: now)
+            )
         case "metadataStatus":
             let frame = try decoder.decode(Frame<WireMetadataStatus>.self, from: data)
-            return .metadata(groupID: header.groupId ?? "", nowPlaying: NowPlaying(wire: frame.body))
+            return .metadata(
+                groupID: header.groupId ?? "",
+                nowPlaying: NowPlaying(wire: frame.body),
+                durationMillis: frame.body.currentItem?.track?.durationMillis
+            )
         case "groupVolume":
             let frame = try decoder.decode(Frame<WireVolume>.self, from: data)
             return .groupVolume(groupID: header.groupId ?? "", volume: Volume(wire: frame.body))

@@ -19,19 +19,29 @@ enum SnapshotReducer {
                     playerIDs: wire.playerIds,
                     playbackState: wire.playbackState.map(PlaybackState.init(wireValue:)) ?? old?.playbackState ?? .idle,
                     volume: old?.volume ?? .silent,
-                    nowPlaying: old?.nowPlaying
+                    nowPlaying: old?.nowPlaying,
+                    progress: old?.progress ?? .none
                 )
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             next.players = wirePlayers
                 .map { Player(wire: $0, hasSub: oldPlayers[$0.id]?.hasSub ?? false) }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            next.softwareVersion = wirePlayers.first?.softwareVersion ?? snapshot.softwareVersion
 
-        case .playbackStatus(let groupID, let state):
-            update(&next, groupID) { $0.playbackState = state }
+        case .playbackStatus(let groupID, let state, let progress):
+            update(&next, groupID) { group in
+                group.playbackState = state
+                let duration = group.progress.durationMillis
+                group.progress = progress
+                group.progress.durationMillis = duration
+            }
 
-        case .metadata(let groupID, let nowPlaying):
-            update(&next, groupID) { $0.nowPlaying = nowPlaying }
+        case .metadata(let groupID, let nowPlaying, let durationMillis):
+            update(&next, groupID) { group in
+                group.nowPlaying = nowPlaying
+                group.progress.durationMillis = durationMillis
+            }
 
         case .groupVolume(let groupID, let volume):
             update(&next, groupID) { $0.volume = volume }

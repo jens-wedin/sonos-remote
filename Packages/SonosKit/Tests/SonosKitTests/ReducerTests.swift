@@ -25,7 +25,7 @@ import Testing
     @Test func topologyWithoutPlaybackStatePreservesKnownState() throws {
         var snapshot = SnapshotReducer.reduce(HouseholdSnapshot(), try topology())
         snapshot = SnapshotReducer.reduce(snapshot, .groupVolume(groupID: gid, volume: Volume(level: 40, muted: true, fixed: false)))
-        snapshot = SnapshotReducer.reduce(snapshot, .metadata(groupID: gid, nowPlaying: NowPlaying(title: "Song")))
+        snapshot = SnapshotReducer.reduce(snapshot, .metadata(groupID: gid, nowPlaying: NowPlaying(title: "Song"), durationMillis: nil))
         snapshot = SnapshotReducer.reduce(snapshot, .playerHasSub(playerID: "RINCON_347E5C04E98101400", hasSub: true))
 
         // Same groups, but as the websocket sends them: no playbackState.
@@ -60,8 +60,8 @@ import Testing
 
     @Test func groupScopedEventsUpdateOnlyTheirGroup() throws {
         var snapshot = SnapshotReducer.reduce(HouseholdSnapshot(), try topology())
-        snapshot = SnapshotReducer.reduce(snapshot, .playbackStatus(groupID: gid, state: .paused))
-        snapshot = SnapshotReducer.reduce(snapshot, .playbackStatus(groupID: "nope", state: .playing))
+        snapshot = SnapshotReducer.reduce(snapshot, .playbackStatus(groupID: gid, state: .paused, progress: .none))
+        snapshot = SnapshotReducer.reduce(snapshot, .playbackStatus(groupID: "nope", state: .playing, progress: .none))
         #expect(snapshot.group(gid)?.playbackState == .paused)
         #expect(snapshot.groups.filter { $0.playbackState == .playing }.isEmpty)
     }
@@ -86,5 +86,30 @@ import Testing
 
         snapshot = SnapshotReducer.reduce(snapshot, .playerRemoved(playerID: "RINCON_347E5C04E98101400"))
         #expect(snapshot.group(gid)?.playerIDs == ["RINCON_542A1B73A25001400"])
+    }
+
+    @Test func playbackStatusFillsProgressAndMetadataFillsDuration() throws {
+        var snapshot = SnapshotReducer.reduce(HouseholdSnapshot(), try topology())
+        let at = Date(timeIntervalSince1970: 1_000)
+        let reported = PlaybackProgress(positionMillis: 133000, durationMillis: nil, reportedAt: at, shuffle: true, repeatEnabled: false, canShuffle: true, canRepeat: true)
+        snapshot = SnapshotReducer.reduce(snapshot, .playbackStatus(groupID: gid, state: .playing, progress: reported))
+        #expect(snapshot.group(gid)?.progress.positionMillis == 133000)
+        #expect(snapshot.group(gid)?.progress.shuffle == true)
+        #expect(snapshot.group(gid)?.progress.reportedAt == at)
+        snapshot = SnapshotReducer.reduce(snapshot, .metadata(groupID: gid, nowPlaying: NowPlaying(title: "Song"), durationMillis: 246000))
+        #expect(snapshot.group(gid)?.progress.durationMillis == 246000)
+        #expect(snapshot.group(gid)?.progress.positionMillis == 133000)
+        // A later playback status keeps the duration from metadata.
+        snapshot = SnapshotReducer.reduce(snapshot, .playbackStatus(groupID: gid, state: .paused, progress: PlaybackProgress(positionMillis: 140000, durationMillis: nil, reportedAt: at, shuffle: false, repeatEnabled: false, canShuffle: true, canRepeat: true)))
+        #expect(snapshot.group(gid)?.progress.durationMillis == 246000)
+        #expect(snapshot.group(gid)?.progress.positionMillis == 140000)
+    }
+
+    @Test func topologyKeepsProgressAndSetsSoftwareVersion() throws {
+        var snapshot = SnapshotReducer.reduce(HouseholdSnapshot(), try topology())
+        #expect(snapshot.softwareVersion == "96.1-79270")
+        snapshot = SnapshotReducer.reduce(snapshot, .metadata(groupID: gid, nowPlaying: nil, durationMillis: 5000))
+        snapshot = SnapshotReducer.reduce(snapshot, try topology())
+        #expect(snapshot.group(gid)?.progress.durationMillis == 5000)
     }
 }

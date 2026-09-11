@@ -14,13 +14,15 @@ public struct HouseholdSnapshot: Sendable, Hashable {
     public var players: [Player]
     public var favorites: [Favorite]
     public var playerVolumes: [String: Volume]
+    public var softwareVersion: String?
 
-    public init(status: HouseholdStatus = .discovering, groups: [Group] = [], players: [Player] = [], favorites: [Favorite] = [], playerVolumes: [String: Volume] = [:]) {
+    public init(status: HouseholdStatus = .discovering, groups: [Group] = [], players: [Player] = [], favorites: [Favorite] = [], playerVolumes: [String: Volume] = [:], softwareVersion: String? = nil) {
         self.status = status
         self.groups = groups
         self.players = players
         self.favorites = favorites
         self.playerVolumes = playerVolumes
+        self.softwareVersion = softwareVersion
     }
 
     public func group(_ id: String) -> Group? { groups.first { $0.id == id } }

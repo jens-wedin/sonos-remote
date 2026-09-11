@@ -19,6 +19,7 @@ import Testing
             var configuration = Household.Configuration()
             configuration.discoveryTimeout = timeout
             configuration.backoff = backoff
+            configuration.now = { Date(timeIntervalSince1970: 42) }
             household = Household(discovery: discovery, transport: transport, trustStore: trust, configuration: configuration)
         }
 
@@ -60,6 +61,10 @@ import Testing
         try await waitUntil { await h.household.current.group(gid)?.volume == Volume(level: 33, muted: true, fixed: false) }
         socket.push(#"[{"namespace":"playerVolume:1","type":"playerVolume","playerId":"RINCON_542A1B73A25001400"},{"volume":9,"muted":false,"fixed":false}]"#)
         try await waitUntil { await h.household.current.playerVolumes["RINCON_542A1B73A25001400"]?.level == 9 }
+        socket.push(#"[{"namespace":"playback:1","type":"playbackStatus","groupId":"\#(gid)"},{"playbackState":"PLAYBACK_STATE_PLAYING","positionMillis":5000,"playModes":{"shuffle":true,"repeat":false},"availablePlaybackActions":{"canShuffle":true,"canRepeat":false}}]"#)
+        try await waitUntil { await h.household.current.group(gid)?.progress.shuffle == true }
+        #expect(await h.household.current.group(gid)?.progress.canRepeat == false)
+        #expect(await h.household.current.group(gid)?.progress.reportedAt == Date(timeIntervalSince1970: 42))
         await h.household.stop()
     }
 
