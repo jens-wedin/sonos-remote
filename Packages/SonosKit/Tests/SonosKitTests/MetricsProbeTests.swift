@@ -19,10 +19,28 @@ import Testing
         let counter = Task {
             for await _ in stream { count.withLock { $0 += 1 } }
         }
-        try await Task.sleep(for: .milliseconds(50))
+        // Wait for the initial snapshot every observer gets before pushing the burst,
+        // instead of a fixed sleep that can race the subscription under load.
+        try await waitUntil { count.withLock { $0 } >= 1 }
         let frame = #"[{"namespace":"groupVolume:1","type":"groupVolume","groupId":"\#(groupID)"},{"volume":20,"muted":false,"fixed":false}]"#
         for _ in 0..<40 { socket.push(frame) }
-        try await Task.sleep(for: .milliseconds(300))
+
+        // Wait until the yield count has been stable for 150 ms (i.e. the burst has fully
+        // drained), capped at 2 s total, instead of a fixed sleep that can under-report.
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(2)
+        var lastCount = count.withLock { $0 }
+        var stableSince = clock.now
+        while clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+            let current = count.withLock { $0 }
+            if current != lastCount {
+                lastCount = current
+                stableSince = clock.now
+            } else if clock.now - stableSince >= .milliseconds(150) {
+                break
+            }
+        }
         counter.cancel()
         let yields = count.withLock { $0 } - 1   // minus the initial snapshot every observer gets
         print("METRIC perf.snapshot_yields_per_40_burst=\(max(yields, 0))")

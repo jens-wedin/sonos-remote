@@ -1,12 +1,12 @@
 {
   "label": "before",
-  "commit": "c2bee59",
+  "commit": "28d947f",
   "date": "2026-09-11",
   "values": {
     "a11y.unfocusable_custom_buttons": 11,
     "a11y.focusable_sites": 2,
     "a11y.small_targets": 2,
-    "a11y.colour_only_toggles": 0,
+    "a11y.colour_only_toggles": 1,
     "a11y.announcement_sites": 0,
     "a11y.updates_frequently": 0,
     "a11y.actions": 0,
@@ -35,6 +35,6 @@
     "perf.snapshot_yields_per_40_burst": 40,
     "tests.package": 81,
     "tests.app": 41,
-    "build.warnings": 2
+    "build.warnings": 0
   }
 }

@@ -55,7 +55,12 @@ def colour_only_toggles():
     body = read(p)
     if "ToggleGlyph" not in body:
         return 0
-    return 0 if re.search(r"ToggleGlyph[\s\S]*?\.background\(", body) else 1
+    start = body.find("struct ToggleGlyph")
+    if start == -1:
+        return 0
+    end = body.find("\n}\n", start)
+    struct_body = body[start:end] if end != -1 else body[start:]
+    return 0 if re.search(r"\.background\(", struct_body) else 1
 
 def small_targets():
     return count(r"\.frame\(width:\s*2[0-3],\s*height:\s*2[0-3]\)", VIEWS)
@@ -118,7 +123,7 @@ def run_tests():
     text = app.stdout + app.stderr
     m = re.search(r"Test run with (\d+) tests", text)
     out["tests.app"] = int(m.group(1)) if m else -1
-    out["build.warnings"] = len([l for l in text.splitlines() if "warning:" in l and "DerivedData" not in l and "SourcePackages" not in l])
+    out["build.warnings"] = len([l for l in text.splitlines() if "warning:" in l and re.search(r"(SonosRemote/|Packages/SonosKit/(Sources|Tests)/).*warning:", l)])
     return out
 
 DYNAMIC = [
