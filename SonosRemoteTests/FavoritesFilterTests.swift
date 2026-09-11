@@ -19,4 +19,11 @@ import SonosKit
         #expect(FavoritesFilter.apply(favorites, query: "spotify").map(\.id) == ["3"])
         #expect(FavoritesFilter.apply(favorites, query: "zzz").isEmpty)
     }
+
+    @Test func secondLineJoinsSubtitleOrServiceWithKind() {
+        #expect(favorites[0].secondLine == "Sveriges Radio · Station")
+        #expect(favorites[1].secondLine == "Playlist · 48 tracks · Playlist")
+        #expect(favorites[2].secondLine == "Spotify · Playlist")
+        #expect(Favorite(id: "4", name: "Mix", subtitle: nil, kind: .other).secondLine == "")
+    }
 }
