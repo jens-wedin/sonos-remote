@@ -151,6 +151,20 @@ import Testing
         await h.household.stop()
     }
 
+    @Test func rediscoveryAtANewAddressRevokesTheOldOne() async throws {
+        // An id the topology fixture doesn't mention, so only discovery decides its address.
+        let moved = DiscoveredPlayer(id: "RINCON_MOVED", address: "192.168.1.10", householdID: "HH")
+        let h = Harness()
+        _ = try await h.startAndDiscover(moved)
+        #expect(h.trust.shouldTrust(host: "192.168.1.10"))
+        h.discovery.emit(.found(DiscoveredPlayer(id: moved.id, address: "192.168.1.11", householdID: "HH")))
+        try await waitUntil { h.trust.shouldTrust(host: "192.168.1.11") }
+        // DHCP may have handed the old address to some other device; its pin must not survive.
+        #expect(!h.trust.shouldTrust(host: "192.168.1.10"))
+        #expect(h.trust.shouldTrust(host: "192.168.1.11"))
+        await h.household.stop()
+    }
+
     @Test func noPlayersWithinTimeoutSetsStatus() async throws {
         let h = Harness(timeout: .milliseconds(30))
         let stream = await h.household.snapshots()

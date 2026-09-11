@@ -169,6 +169,9 @@ public actor Household {
             }
             logger.info("discovery found player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
             removedPlayers.remove(player.id)
+            // Moved to a new address: forget the old one and its pin before recording the new
+            // one, since DHCP may already have handed it to some other device.
+            if let old = addresses[player.id], old != player.address { trustStore?.revoke(host: old) }
             addresses[player.id] = player.address
             trustStore?.allow(host: player.address)
             if snapshot.status == .noPlayersFound {

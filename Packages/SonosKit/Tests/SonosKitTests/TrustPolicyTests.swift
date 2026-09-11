@@ -38,6 +38,10 @@ import Testing
         #expect(!TrustPolicy.isLocalSpeakerAddress("sonos.example.com"))
         #expect(!TrustPolicy.isLocalSpeakerAddress("172.32.0.1"))
         #expect(!TrustPolicy.isLocalSpeakerAddress(""))
+        #expect(!TrustPolicy.isLocalSpeakerAddress("+10.0.0.7"))
+        #expect(!TrustPolicy.isLocalSpeakerAddress("10.0.0.+7"))
+        #expect(!TrustPolicy.isLocalSpeakerAddress("fdsonos.local"))
+        #expect(!TrustPolicy.isLocalSpeakerAddress("169.254.example.com"))
     }
 
     @Test func speakerHostRequiresAllowedSchemeAndLocalLiteral() {
@@ -47,6 +51,8 @@ import Testing
         #expect(TrustPolicy.speakerHost(from: "http://93.184.216.34/x", schemes: ["http", "https"]) == nil)
         #expect(TrustPolicy.speakerHost(from: "file:///etc/hosts", schemes: ["http", "https"]) == nil)
         #expect(TrustPolicy.speakerHost(from: "ws://192.168.1.10/", schemes: ["wss"]) == nil)
+        #expect(TrustPolicy.speakerHost(from: "wss://[fe80::1]:1443/websocket/api", schemes: ["wss"]) == "fe80::1")
+        #expect(TrustPolicy.speakerHost(from: "http://[2001:db8::1]:1400/x", schemes: ["http"]) == nil)
     }
 
     @Test func firstContactPinsAndLaterContactsMustMatch() {

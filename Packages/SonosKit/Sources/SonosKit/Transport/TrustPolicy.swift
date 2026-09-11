@@ -23,7 +23,7 @@ public enum TrustPolicy {
     public static func isPrivateIPv4(_ host: String) -> Bool {
         let parts = host.split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count == 4 else { return false }
-        let octets = parts.compactMap { UInt8($0) }
+        let octets = parts.compactMap { octet($0) }
         guard octets.count == 4 else { return false }
         switch (octets[0], octets[1]) {
         case (10, _): return true
@@ -46,10 +46,14 @@ public enum TrustPolicy {
     }
 
     /// The host of `urlString` when its scheme is allowed and the host is a local speaker literal.
+    /// An IPv6 literal is returned bare: `URLComponents.host` keeps the brackets a URL wraps it
+    /// in (`"[fe80::1]"`), which is not an address any of the policy checks would recognise.
     public static func speakerHost(from urlString: String, schemes: Set<String>) -> String? {
         guard let components = URLComponents(string: urlString),
               let scheme = components.scheme?.lowercased(), schemes.contains(scheme),
-              let host = components.host, isLocalSpeakerAddress(host) else { return nil }
+              let rawHost = components.host else { return nil }
+        let host = unbracketed(rawHost)
+        guard isLocalSpeakerAddress(host) else { return nil }
         return host
     }
 
@@ -64,7 +68,20 @@ public enum TrustPolicy {
 
     private static func isIPv4Literal(_ host: String) -> Bool {
         let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-        return parts.count == 4 && parts.allSatisfy { UInt8($0) != nil }
+        return parts.count == 4 && parts.allSatisfy { octet($0) != nil }
+    }
+
+    /// One IPv4 octet, digits only. `UInt8(_:)` accepts a sign — `UInt8("+10") == 10` — so parsing
+    /// the raw text would read "+10.0.0.7" as private 10/8 even though it is not an address at all.
+    private static func octet(_ text: Substring) -> UInt8? {
+        guard !text.isEmpty, text.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return UInt8(text)
+    }
+
+    /// An IPv6 literal without the square brackets a URL wraps it in; anything else unchanged.
+    private static func unbracketed(_ host: String) -> String {
+        guard host.count > 2, host.hasPrefix("["), host.hasSuffix("]") else { return host }
+        return String(host.dropFirst().dropLast())
     }
 }
 
