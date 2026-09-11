@@ -130,9 +130,24 @@ import Testing
         try await waitUntil { await h.household.current.groups.map(\.name) == ["Elsas Sovrum", "Flyttbar + 1", "Sovrum"] }
         #expect(h.transport.socketCount == 4)
 
+        #expect(h.trust.shouldTrust(host: "192.168.1.28"))
         h.discovery.emit(.lost(playerID: "RINCON_48A6B8194D2A01400"))
         try await waitUntil { await h.household.current.player("RINCON_48A6B8194D2A01400") == nil }
         #expect(await h.household.current.groups.map(\.name) == ["Elsas Sovrum", "Flyttbar + 1"])
+        // A lost player's address is forgotten: DHCP may hand it to some other device next.
+        #expect(!h.trust.shouldTrust(host: "192.168.1.28"))
+        await h.household.stop()
+    }
+
+    @Test func discoveredPlayersOffTheLocalNetworkAreIgnored() async throws {
+        let h = Harness(timeout: .milliseconds(30))
+        let stream = await h.household.snapshots()
+        await h.household.start()
+        h.discovery.emit(.found(DiscoveredPlayer(id: "RINCON_ROGUE", address: "speakers.attacker.example", householdID: "HH")))
+        for await snapshot in stream where snapshot.status == .noPlayersFound { break }
+        #expect(await h.household.current.players.isEmpty)
+        #expect(!h.trust.shouldTrust(host: "speakers.attacker.example"))
+        #expect(h.transport.requests(matching: "attacker").isEmpty)
         await h.household.stop()
     }
 

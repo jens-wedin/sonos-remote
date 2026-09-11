@@ -44,7 +44,8 @@ public final class URLSessionTransport: Transport, @unchecked Sendable {
     }
 }
 
-/// Accepts the player's self-signed certificate only for allowed private hosts.
+/// Accepts the player's self-signed certificate only for allowed local hosts on the speaker port,
+/// and only while it presents the public key pinned on first contact.
 private final class TrustDelegate: NSObject, URLSessionDelegate, Sendable {
     private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "transport")
 
@@ -60,9 +61,10 @@ private final class TrustDelegate: NSObject, URLSessionDelegate, Sendable {
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        guard let trust = space.serverTrust, store.shouldTrust(host: space.host) else {
-            logger.error("declined trust for host \(space.host, privacy: .public); falling back to default handling")
-            completionHandler(.performDefaultHandling, nil)
+        guard let trust = space.serverTrust, let keyHash = TrustPolicy.leafKeyHash(of: trust),
+              store.decision(host: space.host, port: space.port, keyHash: keyHash) == .accept else {
+            logger.error("declined trust for host \(space.host, privacy: .private(mask: .hash)); cancelling the challenge")
+            completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
         completionHandler(.useCredential, URLCredential(trust: trust))

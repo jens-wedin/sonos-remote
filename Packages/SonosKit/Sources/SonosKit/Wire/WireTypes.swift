@@ -28,7 +28,7 @@ struct WirePlayer: Decodable, Hashable, Sendable {
     var softwareVersion: String?
 
     static func host(fromWebsocketURL string: String) -> String? {
-        URLComponents(string: string)?.host
+        TrustPolicy.speakerHost(from: string, schemes: ["wss"])
     }
 }
 

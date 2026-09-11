@@ -10,6 +10,11 @@ public struct DiscoveredPlayer: Hashable, Sendable {
         self.address = address
         self.householdID = householdID
     }
+
+    /// Discovery is unauthenticated input (mDNS is plain multicast anyone on the LAN can answer).
+    /// A speaker always announces an IP literal on the local network, so anything else — a DNS
+    /// name, a public address — is not one of ours, whatever `Discovering` produced it.
+    public var hasLocalAddress: Bool { TrustPolicy.isLocalSpeakerAddress(address) }
 }
 
 public enum DiscoveryEvent: Hashable, Sendable {

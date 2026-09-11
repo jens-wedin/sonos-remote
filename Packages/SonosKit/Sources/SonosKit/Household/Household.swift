@@ -163,6 +163,10 @@ public actor Household {
     private func handle(discovery event: DiscoveryEvent) async {
         switch event {
         case .found(let player):
+            guard player.hasLocalAddress else {
+                logger.error("ignoring discovered player \(player.id, privacy: .public): address is not on the local network")
+                return
+            }
             logger.info("discovery found player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
             removedPlayers.remove(player.id)
             addresses[player.id] = player.address
@@ -186,6 +190,10 @@ public actor Household {
             subProbed.remove(playerID)
             subProbeInFlight.remove(playerID)
             apply(.playerRemoved(playerID: playerID))
+            // Forget the address and its pin: DHCP may hand it to some other device next.
+            if let address = addresses.removeValue(forKey: playerID) {
+                trustStore?.revoke(host: address)
+            }
             await stopSocket(playerID)
             if snapshot.players.isEmpty {
                 apply(.status(.noPlayersFound))
@@ -427,11 +435,12 @@ public actor Household {
         }
     }
 
-    /// Allows every address in a raw topology payload, before `removedPlayers` filtering, so a
-    /// topology-listed player address is always trusted even if it's currently filtered out of
-    /// the snapshot.
+    /// Allows every address in a raw topology payload, so a topology-listed player address is
+    /// trusted before it reaches the snapshot. Players discovery has told us are gone are skipped:
+    /// their address was revoked in the `.lost` branch and a payload that still lists them (a
+    /// racing fetch, or a speaker that hasn't noticed yet) must not hand that trust back.
     private func allowTrust(forWirePlayers players: [WirePlayer]) {
-        for player in players {
+        for player in players where !removedPlayers.contains(player.id) {
             if let address = WirePlayer.host(fromWebsocketURL: player.websocketUrl) {
                 trustStore?.allow(host: address)
             }

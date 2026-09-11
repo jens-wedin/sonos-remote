@@ -59,7 +59,7 @@ final class AppState {
     }
 
     static func live() -> AppState {
-        let transport = URLSessionTransport()
+        let transport = URLSessionTransport(trustStore: TrustStore(pinStore: UserDefaultsPinStore()))
         let household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
         return AppState(household: household)
     }
@@ -83,7 +83,7 @@ final class AppState {
         resolvedInitialSelection = false
         let old = household
         Task { await old.stop() }
-        let transport = URLSessionTransport()
+        let transport = URLSessionTransport(trustStore: TrustStore(pinStore: UserDefaultsPinStore()))
         household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
         snapshot = HouseholdSnapshot()
         rowErrors = [:]

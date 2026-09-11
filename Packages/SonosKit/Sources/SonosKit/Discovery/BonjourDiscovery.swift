@@ -26,7 +26,7 @@ public final class BonjourDiscovery: Discovering, @unchecked Sendable {
     public static func player(fromTXT txt: [String: String]) -> DiscoveredPlayer? {
         guard let id = txt["uuid"], !id.isEmpty,
               let location = txt["location"],
-              let host = URLComponents(string: location)?.host, !host.isEmpty else { return nil }
+              let host = TrustPolicy.speakerHost(from: location, schemes: ["http", "https"]) else { return nil }
         return DiscoveredPlayer(id: id, address: host, householdID: txt["hhid"])
     }
 

@@ -21,6 +21,16 @@ import Testing
         #expect(BonjourDiscovery.player(fromTXT: ["uuid": "RINCON_1", "location": "not a url"]) == nil)
     }
 
+    @Test func txtRecordsPointingOffTheLANAreIgnored() {
+        #expect(BonjourDiscovery.player(fromTXT: ["uuid": "RINCON_1", "location": "http://192.168.1.10:1400/xml/device_description.xml"]) != nil)
+        #expect(BonjourDiscovery.player(fromTXT: ["uuid": "RINCON_1", "location": "http://attacker.example/xml"]) == nil)
+        #expect(BonjourDiscovery.player(fromTXT: ["uuid": "RINCON_1", "location": "ftp://192.168.1.10/x"]) == nil)
+        #expect(WirePlayer.host(fromWebsocketURL: "wss://192.168.1.11:1443/websocket/api") == "192.168.1.11")
+        #expect(WirePlayer.host(fromWebsocketURL: "wss://evil.example:1443/websocket/api") == nil)
+        #expect(DiscoveredPlayer(id: "RINCON_1", address: "192.168.1.10", householdID: nil).hasLocalAddress)
+        #expect(!DiscoveredPlayer(id: "RINCON_1", address: "attacker.example", householdID: nil).hasLocalAddress)
+    }
+
     @Test func fakeDiscoveryDeliversEvents() async {
         let discovery = FakeDiscovery()
         var iterator = discovery.events().makeAsyncIterator()
