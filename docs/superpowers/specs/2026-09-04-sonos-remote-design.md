@@ -106,6 +106,8 @@ Executable target in the package: `sonosctl list`, `sonosctl play|pause|next|pre
 
 ## 5. App design
 
+> Superseded on 2026-09-11 by docs/superpowers/specs/2026-09-11-panel-redesign-design.md; the rest of this document still applies.
+
 ### Menu bar item
 
 A template SF Symbol (`hifispeaker.2`) and nothing else. It must read on macOS 26's transparent menu bar over busy wallpapers. Clicking toggles the panel. The global shortcut, default unset, toggles it too.

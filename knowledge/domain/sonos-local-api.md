@@ -10,3 +10,9 @@
 - EQ is not in the 1443 API. UPnP `RenderingControl` on `http://IP:1400/MediaRenderer/RenderingControl/Control`: GetBass/SetBass, GetTreble/SetTreble, GetLoudness/SetLoudness (Channel Master), GetEQ/SetEQ with EQType SubGain, SubCrossover. Unsupported EQType → HTTP 500 SOAP fault errorCode 402.
 - Sub detection: `GetEQ SubCrossover` > 0 means a sub is attached (Amp reports 99, others 0).
 - A player can stay listed in Bonjour while actually unreachable — the mDNS record is a cached announcement, not a liveness check. REST calls to it then time out (`NSURLErrorDomain -1001`) even though `dns-sd`/`NWBrowser` still shows it. Don't treat "present in Bonjour" as "reachable"; fail over to another discovered player and retry with backoff instead of trusting the first result.
+
+## Playback
+
+- Play modes: `POST /groups/{gid}/playback/playMode` with `{"playModes":{"shuffle":bool,"repeat":bool}}`; always send both keys (the speaker treats a missing key as "leave as is", but a partial body has produced 400s on older firmware). The current modes and the `canShuffle`/`canRepeat` flags arrive in every `playbackStatus` event under `playModes` and `availablePlaybackActions`.
+- Position: `playbackStatus.positionMillis` is the position at the moment of the event; the app extrapolates locally while playing. Duration comes from `metadataStatus.currentItem.track.durationMillis` and is absent for radio.
+- Software version: `players[].softwareVersion` in `GET /households/local/groups`.

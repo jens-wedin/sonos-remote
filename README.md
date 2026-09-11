@@ -16,18 +16,23 @@ On first launch macOS asks whether the app may find devices on your local networ
 
 The app talks to the speakers through Sonos's local Control API, which Sonos does not document for third parties. A future speaker firmware could change it.
 
-## Features (v0.1.0)
+## Features (v0.2.0)
 
-- Transport: play/pause, next, previous for the open group.
-- Volume: group volume and per-speaker volume, live in both directions (drag the slider or change it from the Sonos app).
-- Grouping: join or release rooms into the open group; the coordinator can't be toggled off.
-- Favorites: play a Sonos favorite on the open group.
-- EQ: bass, treble, loudness, and sub gain (sub slider only shown for players that report one, e.g. the Amp).
-- Launch at login and a global keyboard shortcut to open the panel, both from Settings.
+- Menu bar panel (420 pt) with one selected room: artwork, title, artist, album, a progress bar with elapsed and remaining time, and shuffle / previous / play-pause / next / repeat.
+- Group volume with mute, and a rooms list with a slider per group; playing rooms sort to the top.
+- Favorites screen: pick the room, search, play stations, playlists and albums.
+- Sound screen: Flat / Warm / Bright presets, bass, treble, sub (when the room has one), loudness, per speaker.
+- Group screen: join and release rooms with switches.
+- Settings screen: connection status with refresh, launch at login, a global shortcut, version and a link to releases.
+- Keyboard: Escape closes, Cmd-[ goes back, Up/Down/Return/Space work in the rooms list, Cmd-Q quits. VoiceOver labels on every control.
 
 ### Not yet
 
-Media keys, Control Center now-playing integration, queue view, search, a "reconnecting" indicator on rows whose websocket is down (commands still work over REST while a socket reconnects).
+Seeking by dragging the progress bar, balance, Speech Enhancement and Night Sound, pinned favorites, album art in the menu bar, in-app update checks. See `docs/superpowers/specs/2026-09-11-panel-redesign-design.md` for the round-2 list.
+
+## Panel layout
+
+The panel has a header (the SONOS label or a back chevron plus the screen name, and three icons: favorites, sound, settings), a body that slides between the main screen and the sub-screens, and a footer with the version and Quit. The main screen is a hero for the selected room, the transport, the group volume and the rooms list; the Group screen opens from the "Group" link above the rooms list. The design mockup is `docs/design/2026-09-11-panel-mockup.png`.
 
 ## How it works
 

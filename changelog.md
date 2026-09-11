@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Changed
+- New panel design (420 pt): a hero for one selected room with artwork, title, artist and album, a progress bar with elapsed and remaining time, shuffle and repeat next to the transport, the group volume, and a compact rooms list; playing rooms still sort first. Selecting a room replaces opening a row.
+- Favorites, Sound (EQ), Group and Settings are screens reached from the header icons and the "Group" link, with a back chevron and Cmd-[ to return; the body slides between screens.
+- Settings moved into the panel; the separate Settings window and its Dock-icon activation code are gone.
+
+### Added
+- Shuffle and repeat, with the buttons disabled when the speaker reports it cannot.
+- Favorites search and type glyphs for stations, playlists and albums.
+- Tone presets Flat, Warm and Bright, and a Reset link on the Tone card.
+- Connection card on the Settings screen: status, speaker count, Sonos software version, and a refresh button that reruns discovery.
+- Version and a Releases link on the Settings screen.
+- SonosKit: playback position, duration and play modes on `Group.progress`; `Favorite.kind`; `HouseholdSnapshot.softwareVersion`; `Household.setShuffle` and `setRepeat`.
+
 ## [0.1.1] - 2026-09-10
 
 ### Changed
