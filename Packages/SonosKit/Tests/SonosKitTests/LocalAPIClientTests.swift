@@ -93,4 +93,18 @@ import Testing
             _ = try await client.groups(from: "192.168.1.105")
         }
     }
+
+    @Test func setPlayModesPostsBothFlags() async throws {
+        try await client.setPlayModes(shuffle: true, repeat: false, groupID: gid, at: "192.168.1.216")
+        let request = try #require(transport.requests.first)
+        #expect(request.url.path == "/api/v1/groups/\(gid)/playback/playMode")
+        guard let requestBody = request.body else {
+            Issue.record("Request has no body")
+            return
+        }
+        let body = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let modes = try #require(body["playModes"] as? [String: Any])
+        #expect(modes["shuffle"] as? Bool == true)
+        #expect(modes["repeat"] as? Bool == false)
+    }
 }

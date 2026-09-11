@@ -56,6 +56,10 @@ public struct LocalAPIClient: Sendable {
         try await post(address: address, path: "/groups/\(groupID)/groups/setGroupMembers", body: MembersBody(playerIds: playerIDs))
     }
 
+    public func setPlayModes(shuffle: Bool, repeat: Bool, groupID: String, at address: String) async throws {
+        try await post(address: address, path: "/groups/\(groupID)/playback/playMode", body: PlayModeBody(playModes: .init(shuffle: shuffle, repeat: `repeat`)))
+    }
+
     // MARK: Player commands (send to that player)
 
     public func setPlayerVolume(_ level: Int, playerID: String, at address: String) async throws {
@@ -72,6 +76,10 @@ public struct LocalAPIClient: Sendable {
     private struct MutedBody: Encodable { var muted: Bool }
     private struct FavoriteBody: Encodable { var favoriteId: String; var playOnCompletion: Bool }
     private struct MembersBody: Encodable { var playerIds: [String] }
+    private struct PlayModeBody: Encodable {
+        struct Modes: Encodable { var shuffle: Bool; var `repeat`: Bool }
+        var playModes: Modes
+    }
 
     func makeRequest(method: String, address: String, path: String, body: Data? = nil) -> APIRequest {
         var headers = ["X-Sonos-Api-Key": Self.apiKey]

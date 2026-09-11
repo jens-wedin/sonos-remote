@@ -131,6 +131,16 @@ public actor Household {
         try await groupCommand(id) { try await api.setGroupMembers(playerIDs, groupID: id, at: $0) }
     }
 
+    public func setShuffle(_ on: Bool, group id: String) async throws {
+        let current = snapshot.group(id)?.progress ?? .none
+        try await groupCommand(id) { try await api.setPlayModes(shuffle: on, repeat: current.repeatEnabled, groupID: id, at: $0) }
+    }
+
+    public func setRepeat(_ on: Bool, group id: String) async throws {
+        let current = snapshot.group(id)?.progress ?? .none
+        try await groupCommand(id) { try await api.setPlayModes(shuffle: current.shuffle, repeat: on, groupID: id, at: $0) }
+    }
+
     public func setPlayerVolume(_ level: Int, player id: String) async throws {
         try await api.setPlayerVolume(level, playerID: id, at: playerAddress(id))
     }

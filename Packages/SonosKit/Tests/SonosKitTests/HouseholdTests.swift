@@ -306,4 +306,25 @@ import Testing
         #expect(h.transport.socketCount == 3)
         await h.household.stop()
     }
+
+    @Test func shuffleAndRepeatSendTheFullPairToTheCoordinator() async throws {
+        let h = Harness()
+        _ = try await h.startAndDiscover(stereo)
+        try await waitUntil { h.transport.socket(forHost: "192.168.1.216") != nil }
+        let socket = try #require(h.transport.socket(forHost: "192.168.1.216"))
+        socket.push(#"[{"namespace":"playback:1","type":"playbackStatus","groupId":"\#(gid)"},{"playbackState":"PLAYBACK_STATE_PLAYING","positionMillis":0,"playModes":{"shuffle":false,"repeat":true},"availablePlaybackActions":{"canShuffle":true,"canRepeat":true}}]"#)
+        try await waitUntil { await h.household.current.group(gid)?.progress.repeatEnabled == true }
+        try await h.household.setShuffle(true, group: gid)
+        let request = try #require(h.transport.requests(matching: "/playback/playMode").last)
+        #expect(request.url.host() == "192.168.1.216")
+        guard let requestBody = request.body else {
+            Issue.record("Request has no body")
+            return
+        }
+        let body = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let modes = try #require(body["playModes"] as? [String: Any])
+        #expect(modes["shuffle"] as? Bool == true)
+        #expect(modes["repeat"] as? Bool == true)
+        await h.household.stop()
+    }
 }
