@@ -1,12 +1,111 @@
 import SwiftUI
 import SonosKit
+import ServiceManagement
+import KeyboardShortcuts
 
 struct SettingsScreen: View {
     @Environment(AppState.self) private var state
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var loginError: String?
+
+    private static let releasesURL = URL(string: "https://github.com/jens-wedin/sonos-remote/releases")!
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            StatusBannerView()
-            Text("Settings screen: replaced in Task 9").font(.caption).foregroundStyle(.secondary).padding(16)
+        VStack(alignment: .leading, spacing: 0) {
+            SectionLabel("CONNECTION")
+            Card {
+                CardRow(isFirst: true) {
+                    Circle()
+                        .fill(isConnected ? Color.green : Color.gray)
+                        .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(statusText).font(.callout.weight(.medium))
+                        Text(detailText).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { state.retryDiscovery() } label: {
+                        Image(systemName: "arrow.clockwise").frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Refresh connection")
+                }
+            }
+
+            SectionLabel("GENERAL")
+            Card {
+                CardRow(isFirst: true) {
+                    Text("Launch at login").font(.callout)
+                    Spacer()
+                    Toggle("Launch at login", isOn: $launchAtLogin)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                }
+                if let loginError {
+                    CardRow { Text(loginError).font(.caption).foregroundStyle(.red) }
+                }
+                CardRow {
+                    Text("Global shortcut").font(.callout)
+                    Spacer()
+                    KeyboardShortcuts.Recorder(for: .togglePanel)
+                        .accessibilityLabel("Global shortcut")
+                }
+            }
+
+            SectionLabel("SYSTEM")
+            Card {
+                CardRow(isFirst: true) {
+                    Text("Version").font(.callout)
+                    Spacer()
+                    Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                CardRow {
+                    Link(destination: Self.releasesURL) {
+                        HStack {
+                            Text("Releases").font(.callout)
+                            Spacer()
+                            Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .foregroundStyle(.primary)
+                    .accessibilityLabel("Releases on GitHub")
+                }
+            }
         }
+        .padding(.bottom, 12)
+        .onChange(of: launchAtLogin) { _, on in
+            guard on != (SMAppService.mainApp.status == .enabled) else { return }
+            do {
+                if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                loginError = nil
+            } catch {
+                loginError = error.localizedDescription
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+            }
+        }
+    }
+
+    private var isConnected: Bool {
+        if case .ready = state.snapshot.status { return true }
+        return false
+    }
+
+    private var statusText: String {
+        switch state.snapshot.status {
+        case .ready: "Connected"
+        case .discovering: "Looking for Sonos…"
+        case .noPlayersFound: "No Sonos found"
+        case .unauthorized: "Not authorized"
+        case .localNetworkDenied: "Local network access is off"
+        }
+    }
+
+    /// "3 speakers · S2 · 85.1-63270"
+    private var detailText: String {
+        let count = state.snapshot.players.count
+        let speakers = count == 1 ? "1 speaker" : "\(count) speakers"
+        return [speakers, "S2", state.snapshot.softwareVersion].compactMap { $0 }.joined(separator: " · ")
     }
 }
