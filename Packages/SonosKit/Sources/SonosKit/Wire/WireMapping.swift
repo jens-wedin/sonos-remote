@@ -45,7 +45,7 @@ extension PlaybackProgress {
     /// Builds a report from a playbackStatus body; duration is unknown here (it comes from metadata).
     init(wire: WirePlaybackStatus, reportedAt: Date) {
         self.init(
-            positionMillis: wire.positionMillis ?? 0,
+            positionMillis: PlaybackProgress.clamped(wire.positionMillis ?? 0),
             durationMillis: nil,
             reportedAt: reportedAt,
             shuffle: wire.playModes?.shuffle ?? false,

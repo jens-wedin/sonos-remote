@@ -52,4 +52,11 @@ import SonosKit
         #expect(PlaybackDisplay.sourceLine(for: NowPlaying(title: "t", serviceName: "Spotify")) == "Spotify")
         #expect(PlaybackDisplay.sourceLine(for: NowPlaying(title: "t")) == nil)
     }
+
+    @Test func extremeValuesNeverTrap() {
+        let huge = PlaybackProgress(positionMillis: Int.max, durationMillis: Int.max, reportedAt: .distantPast, shuffle: false, repeatEnabled: false, canShuffle: true, canRepeat: true)
+        #expect(PlaybackDisplay.displayedPosition(progress: huge, state: .playing, now: .distantFuture) == Int.max)
+        #expect(PlaybackDisplay.remainingString(position: 0, duration: Int.max).hasPrefix("−"))
+        #expect(PlaybackDisplay.remainingString(position: Int.max, duration: 1) == "−0:00")
+    }
 }

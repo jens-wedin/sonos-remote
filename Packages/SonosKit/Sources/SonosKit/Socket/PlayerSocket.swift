@@ -1,8 +1,11 @@
 import Foundation
+import os
 
 /// One websocket to one player. Reconnects forever with backoff until `stop()`.
 /// Subscriptions are re-sent on every (re)connect.
 actor PlayerSocket {
+    private static let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "socket")
+
     enum Output: Hashable, Sendable {
         case connected
         case disconnected
@@ -26,11 +29,11 @@ actor PlayerSocket {
     private var runTask: Task<Void, Never>?
     private var stopped = false
 
-    init(playerID: String, address: String, transport: any Transport, backoff: Backoff = Backoff(), now: @Sendable @escaping () -> Date = { Date() }) {
-        self.playerID = playerID
+    init?(playerID: String, address: String, transport: any Transport, backoff: Backoff = Backoff(), now: @Sendable @escaping () -> Date = { Date() }) {
         guard let url = URL(string: "wss://\(address):\(LocalAPIClient.port)/websocket/api") else {
-            preconditionFailure("Bad socket URL for player \(playerID) at \(address)")
+            return nil
         }
+        self.playerID = playerID
         self.url = url
         self.transport = transport
         self.backoff = backoff
@@ -68,10 +71,18 @@ actor PlayerSocket {
         let toAdd = desired.subtracting(active)
         active = desired
         for subscription in toRemove {
-            try? await connection.send(subscription.frame(command: "unsubscribe"))
+            guard let frame = subscription.frame(command: "unsubscribe") else {
+                Self.logger.error("skipping unsubscribe for \(subscription.namespace, privacy: .public): frame encoding failed")
+                continue
+            }
+            try? await connection.send(frame)
         }
         for subscription in toAdd {
-            try? await connection.send(subscription.frame(command: "subscribe"))
+            guard let frame = subscription.frame(command: "subscribe") else {
+                Self.logger.error("skipping subscribe for \(subscription.namespace, privacy: .public): frame encoding failed")
+                continue
+            }
+            try? await connection.send(frame)
         }
     }
 
@@ -93,7 +104,11 @@ actor PlayerSocket {
                 let snapshot = desired
                 do {
                     for subscription in snapshot {
-                        try await connection.send(subscription.frame(command: "subscribe"))
+                        guard let frame = subscription.frame(command: "subscribe") else {
+                            Self.logger.error("skipping subscribe for \(subscription.namespace, privacy: .public): frame encoding failed")
+                            continue
+                        }
+                        try await connection.send(frame)
                     }
                 } catch {
                     connection.close()

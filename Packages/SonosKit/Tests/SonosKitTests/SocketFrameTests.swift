@@ -4,7 +4,7 @@ import Testing
 
 @Suite struct SocketFrameTests {
     @Test func subscribeFrameIsHeaderPlusEmptyBody() throws {
-        let data = Subscription(namespace: "playback:1", scope: .group("G1")).frame(command: "subscribe")
+        let data = try #require(Subscription(namespace: "playback:1", scope: .group("G1")).frame(command: "subscribe"))
         let array = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
         #expect(array.count == 2)
         #expect(array[0]["namespace"] as? String == "playback:1")
@@ -15,9 +15,11 @@ import Testing
     }
 
     @Test func playerAndHouseholdScopesUseTheRightKey() throws {
-        let player = try JSONSerialization.jsonObject(with: Subscription(namespace: "playerVolume:1", scope: .player("P1")).frame(command: "subscribe")) as! [[String: Any]]
+        let playerData = try #require(Subscription(namespace: "playerVolume:1", scope: .player("P1")).frame(command: "subscribe"))
+        let player = try JSONSerialization.jsonObject(with: playerData) as! [[String: Any]]
         #expect(player[0]["playerId"] as? String == "P1")
-        let household = try JSONSerialization.jsonObject(with: Subscription(namespace: "groups:1", scope: .household).frame(command: "unsubscribe")) as! [[String: Any]]
+        let householdData = try #require(Subscription(namespace: "groups:1", scope: .household).frame(command: "unsubscribe"))
+        let household = try JSONSerialization.jsonObject(with: householdData) as! [[String: Any]]
         #expect(household[0]["householdId"] as? String == "local")
         #expect(household[0]["command"] as? String == "unsubscribe")
     }
@@ -68,5 +70,14 @@ import Testing
     @Test func malformedFrameThrows() {
         #expect(throws: (any Error).self) { try SocketFrameDecoder.decode(Data("not json".utf8)) }
         #expect(throws: (any Error).self) { try SocketFrameDecoder.decode(Data("[]".utf8)) }
+    }
+
+    @Test func absurdPositionsAndDurationsAreClamped() throws {
+        let status = #"[{"namespace":"playback:1","type":"playbackStatus","groupId":"g"},{"playbackState":"PLAYBACK_STATE_PLAYING","positionMillis":9223372036854775807,"playModes":{"shuffle":false,"repeat":false},"availablePlaybackActions":{"canShuffle":true,"canRepeat":true}}]"#
+        guard case .playbackStatus(_, _, let progress) = try SocketFrameDecoder.decode(Data(status.utf8)) else { Issue.record("wrong event"); return }
+        #expect(progress.positionMillis == PlaybackProgress.maximumMillis)
+        let metadata = #"[{"namespace":"playbackMetadata:1","type":"metadataStatus","groupId":"g"},{"currentItem":{"track":{"name":"t","durationMillis":-5}}}]"#
+        guard case .metadata(_, _, let duration) = try SocketFrameDecoder.decode(Data(metadata.utf8)) else { Issue.record("wrong event"); return }
+        #expect(duration == 0)
     }
 }

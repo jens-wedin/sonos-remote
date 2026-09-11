@@ -241,7 +241,7 @@ final class AppState {
             switch apiError {
             case .unauthorized, .invalidAPIKey: return "Not authorized. Check the Sonos app's connection security settings."
             case .groupGone, .coordinatorMoved: return "That group changed. Refreshing."
-            case .http, .decoding: return "Couldn't reach the speaker."
+            case .http, .decoding, .badAddress: return "Couldn't reach the speaker."
             }
         case is HouseholdError:
             return "That room is no longer available."

@@ -7,7 +7,7 @@ import Testing
 
     @Test func connectsSubscribesAndDecodesEvents() async throws {
         let transport = FakeTransport()
-        let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)
+        let socket = try #require(PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff))
         await socket.setSubscriptions([Subscription(namespace: "groupVolume:1", scope: .group("G1"))])
         await socket.start()
         var outputs = socket.outputs.makeAsyncIterator()
@@ -27,7 +27,7 @@ import Testing
 
     @Test func reconnectsAfterTheConnectionDrops() async throws {
         let transport = FakeTransport()
-        let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)
+        let socket = try #require(PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff))
         await socket.setSubscriptions([Subscription(namespace: "playback:1", scope: .group("G1"))])
         await socket.start()
         var outputs = socket.outputs.makeAsyncIterator()
@@ -44,7 +44,7 @@ import Testing
 
     @Test func changingSubscriptionsSendsUnsubscribeAndSubscribe() async throws {
         let transport = FakeTransport()
-        let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)
+        let socket = try #require(PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff))
         let volume = Subscription(namespace: "playerVolume:1", scope: .player("P1"))
         let playback = Subscription(namespace: "playback:1", scope: .group("G1"))
         await socket.setSubscriptions([volume, playback])
@@ -75,7 +75,7 @@ import Testing
     /// silently dropping subscriptions that were never unsubscribed.
     @Test func setSubscriptionsDuringInitialConnectIsReconciledAfterConnecting() async throws {
         let transport = FakeTransport()
-        let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)
+        let socket = try #require(PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff))
         let a = Subscription(namespace: "playerVolume:1", scope: .player("A"))
         let b = Subscription(namespace: "playerVolume:1", scope: .player("B"))
         let c = Subscription(namespace: "playerVolume:1", scope: .player("C"))
@@ -108,7 +108,7 @@ import Testing
 
     @Test func stopEndsTheOutputStream() async throws {
         let transport = FakeTransport()
-        let socket = PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff)
+        let socket = try #require(PlayerSocket(playerID: "P1", address: "192.168.1.216", transport: transport, backoff: fastBackoff))
         await socket.start()
         var outputs = socket.outputs.makeAsyncIterator()
         #expect(await outputs.next() == .connected)

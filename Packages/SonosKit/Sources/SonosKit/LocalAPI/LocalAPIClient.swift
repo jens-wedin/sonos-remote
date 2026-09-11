@@ -81,11 +81,11 @@ public struct LocalAPIClient: Sendable {
         var playModes: Modes
     }
 
-    func makeRequest(method: String, address: String, path: String, body: Data? = nil) -> APIRequest {
+    func makeRequest(method: String, address: String, path: String, body: Data? = nil) throws -> APIRequest {
         var headers = ["X-Sonos-Api-Key": Self.apiKey]
         if body != nil { headers["Content-Type"] = "application/json" }
         guard let url = URL(string: "https://\(address):\(Self.port)/api/v1\(path)") else {
-            preconditionFailure("Bad local API URL for \(address) \(path)")
+            throw LocalAPIError.badAddress
         }
         return APIRequest(method: method, url: url, headers: headers, body: body)
     }
@@ -99,7 +99,7 @@ public struct LocalAPIClient: Sendable {
     }
 
     private func get<T: Decodable>(_ type: T.Type, address: String, path: String) async throws -> T {
-        let data = try await perform(makeRequest(method: "GET", address: address, path: path))
+        let data = try await perform(try makeRequest(method: "GET", address: address, path: path))
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
@@ -108,11 +108,11 @@ public struct LocalAPIClient: Sendable {
     }
 
     private func post(address: String, path: String) async throws {
-        _ = try await perform(makeRequest(method: "POST", address: address, path: path))
+        _ = try await perform(try makeRequest(method: "POST", address: address, path: path))
     }
 
     private func post<Body: Encodable>(address: String, path: String, body: Body) async throws {
         let data = try JSONEncoder().encode(body)
-        _ = try await perform(makeRequest(method: "POST", address: address, path: path, body: data))
+        _ = try await perform(try makeRequest(method: "POST", address: address, path: path, body: data))
     }
 }

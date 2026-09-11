@@ -4,6 +4,8 @@ public enum UPnPError: Error, Hashable, Sendable {
     case fault(code: Int)
     case http(status: Int)
     case missingValue(String)
+    /// The address (from discovery or a topology payload) could not form a valid URL.
+    case badAddress
 }
 
 /// EQ over UPnP RenderingControl on port 1400. Everything here is per player, not per group.
@@ -87,7 +89,7 @@ public struct UPnPClient: Sendable {
 
     private func call(action: String, arguments: [(name: String, value: String)], address: String) async throws -> String {
         guard let url = URL(string: "http://\(address):\(Self.port)\(SOAP.controlPath)") else {
-            preconditionFailure("Bad UPnP URL for \(address)")
+            throw UPnPError.badAddress
         }
         let request = APIRequest(
             method: "POST",

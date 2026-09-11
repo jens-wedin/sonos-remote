@@ -94,6 +94,15 @@ import Testing
         }
     }
 
+    @Test func badAddressThrowsInsteadOfTrapping() async {
+        let transport = FakeTransport()
+        let client = LocalAPIClient(transport: transport)
+        await #expect(throws: LocalAPIError.badAddress) {
+            try await client.play(groupID: "g", at: "not a host")
+        }
+        #expect(transport.requests.isEmpty)
+    }
+
     @Test func setPlayModesPostsBothFlags() async throws {
         try await client.setPlayModes(shuffle: true, repeat: false, groupID: gid, at: "192.168.1.216")
         let request = try #require(transport.requests.first)

@@ -358,7 +358,10 @@ public actor Household {
             await stopSocket(id)
         }
         for player in snapshot.players where sockets[player.id] == nil && !player.address.isEmpty {
-            let socket = PlayerSocket(playerID: player.id, address: player.address, transport: transport, backoff: configuration.backoff, now: configuration.now)
+            guard let socket = PlayerSocket(playerID: player.id, address: player.address, transport: transport, backoff: configuration.backoff, now: configuration.now) else {
+                logger.error("skipping player \(player.id, privacy: .public): unusable address")
+                continue
+            }
             sockets[player.id] = socket
             socketTasks[player.id] = Task { [weak self] in
                 for await output in socket.outputs {

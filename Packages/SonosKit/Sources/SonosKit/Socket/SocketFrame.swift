@@ -49,8 +49,10 @@ public struct Subscription: Hashable, Sendable {
         self.scope = scope
     }
 
-    /// `[{"namespace":…,"command":…,<scope key>:…},{}]`
-    public func frame(command: String) -> Data {
+    /// `[{"namespace":…,"command":…,<scope key>:…},{}]`. Returns `nil` if the header cannot be
+    /// encoded (it never should for the fields we set, but this is network-adjacent code and a
+    /// malformed subscription must never crash the app).
+    public func frame(command: String) -> Data? {
         var header = SocketHeader(namespace: namespace, command: command)
         switch scope {
         case .group(let id): header.groupId = id
@@ -58,7 +60,7 @@ public struct Subscription: Hashable, Sendable {
         case .household: header.householdId = "local"
         }
         let encoder = JSONEncoder()
-        let headerData = try! encoder.encode(header)
+        guard let headerData = try? encoder.encode(header) else { return nil }
         var data = Data("[".utf8)
         data.append(headerData)
         data.append(Data(",{}]".utf8))
@@ -95,7 +97,7 @@ enum SocketFrameDecoder {
             return .metadata(
                 groupID: header.groupId ?? "",
                 nowPlaying: NowPlaying(wire: frame.body),
-                durationMillis: frame.body.currentItem?.track?.durationMillis
+                durationMillis: frame.body.currentItem?.track?.durationMillis.map(PlaybackProgress.clamped)
             )
         case "groupVolume":
             let frame = try decoder.decode(Frame<WireVolume>.self, from: data)

@@ -8,7 +8,11 @@ enum PlaybackDisplay {
         var position = progress.positionMillis
         if state == .playing {
             let elapsed = now.timeIntervalSince(progress.reportedAt)
-            if elapsed > 0 { position += Int(elapsed * 1000) }
+            if elapsed > 0 {
+                let elapsedMillis = Int(min(elapsed, Double(PlaybackProgress.maximumMillis) / 1000) * 1000)
+                let (sum, overflow) = position.addingReportingOverflow(elapsedMillis)
+                position = overflow ? Int.max : sum
+            }
         }
         return max(0, min(position, duration))
     }
@@ -20,8 +24,9 @@ enum PlaybackDisplay {
     /// Remaining time with a real minus sign, never below −0:00. Rounds up so the display never
     /// undercounts the time actually left (e.g. 187.5s remaining reads "3:08", not "3:07").
     static func remainingString(position: Int, duration: Int) -> String {
-        let remainingMillis = max(0, duration - position)
-        let totalSeconds = (remainingMillis + 999) / 1000
+        let (difference, overflow) = duration.subtractingReportingOverflow(position)
+        let remainingMillis = overflow ? (duration > position ? Int.max : 0) : max(0, difference)
+        let totalSeconds = remainingMillis >= Int.max - 999 ? Int.max / 1000 : (remainingMillis + 999) / 1000
         return "−" + format(totalSeconds: totalSeconds)
     }
 

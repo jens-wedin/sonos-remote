@@ -11,6 +11,8 @@ public enum LocalAPIError: Error, Hashable, Sendable {
     case groupGone
     case http(status: Int)
     case decoding(String)
+    /// The address (from discovery or a topology payload) could not form a valid URL.
+    case badAddress
 
     static func from(status: Int, body: Data) -> LocalAPIError {
         let decoder = JSONDecoder()

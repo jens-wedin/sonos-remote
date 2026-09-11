@@ -66,6 +66,11 @@ public struct PlaybackProgress: Hashable, Sendable {
     }
 
     public static let none = PlaybackProgress(positionMillis: 0, durationMillis: nil, reportedAt: .distantPast, shuffle: false, repeatEnabled: false, canShuffle: false, canRepeat: false)
+
+    /// 24 hours. Anything above is treated as corrupt (a stream cannot be longer, a position cannot be later).
+    public static let maximumMillis = 86_400_000
+
+    public static func clamped(_ millis: Int) -> Int { min(max(millis, 0), maximumMillis) }
 }
 
 public struct Player: Identifiable, Hashable, Sendable {
