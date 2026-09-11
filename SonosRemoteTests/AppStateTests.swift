@@ -99,6 +99,18 @@ import SonosKit
         #expect(appState.tick == frozen)
     }
 
+    @Test func tickFreezesWhenTheSelectedGroupDisappears() async throws {
+        let appState = makeAppState(tickInterval: .milliseconds(20))
+        appState.apply(snapshot([group("a", .playing)]))
+        appState.setPanelPresented(true)
+        try await Task.sleep(for: .milliseconds(120))
+        #expect(appState.tick >= 3)
+        appState.apply(snapshot([]))
+        let frozen = appState.tick
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(appState.tick == frozen)
+    }
+
     @Test func repeatedIdenticalErrorsKeepTheBannerUntilTheLastOneExpires() async throws {
         let appState = makeAppState(clearDelay: .milliseconds(200))
         let groupID = "g1"

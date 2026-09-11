@@ -87,12 +87,13 @@ final class AppState {
         let transport = URLSessionTransport()
         household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
         snapshot = HouseholdSnapshot()
+        updateTicking()
         start()
     }
 
     func apply(_ snapshot: HouseholdSnapshot) {
         self.snapshot = snapshot
-        guard !snapshot.groups.isEmpty else { return }
+        guard !snapshot.groups.isEmpty else { updateTicking(); return }
         let groupIDs = Set(snapshot.groups.map(\.id))
         let topologyChanged = groupIDs != lastGroupIDs
         let stillExists = selectedGroupID.map { id in snapshot.groups.contains { $0.id == id } } ?? false
