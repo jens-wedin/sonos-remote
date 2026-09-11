@@ -27,6 +27,10 @@ struct PanelShellView: View {
         .frame(width: 420)
         .onExitCommand(perform: closePanel)
         .onChange(of: panel.isPresented, initial: true) { _, presented in state.setPanelPresented(presented) }
+        // Belt-and-braces: if the panel's window is torn down without `panel.isPresented`
+        // flipping first, this still stops the once-a-second tick task. Idempotent with the
+        // onChange above.
+        .onDisappear { state.setPanelPresented(false) }
     }
 
     @ViewBuilder private var screenView: some View {

@@ -5,18 +5,15 @@ import SonosKit
 /// does not flood the speaker and incoming events do not fight the thumb.
 struct VolumeSliderView: View {
     enum Style {
-        /// Label, slider, readout, mute (kept for future per-room lists).
-        case labelled
         /// Rooms list: slider and mute only.
         case compact
         /// Main screen volume row: mute glyph on the left, slider, readout.
         case hero
     }
 
-    let label: String
     let volume: Volume
     let accessibilityName: String
-    var style: Style = .labelled
+    var style: Style
     let onChange: (Int) -> Void
     let onMute: (Bool) -> Void
 
@@ -32,12 +29,6 @@ struct VolumeSliderView: View {
     var body: some View {
         HStack(spacing: 8) {
             if style == .hero { muteButton(glyph: "speaker.wave.1", size: 15) }
-            if style == .labelled {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 78, alignment: .leading)
-            }
             Slider(value: $local, in: 0...100, step: 1) { editing in
                 isUserEditing = editing
                 if !editing { commit() }

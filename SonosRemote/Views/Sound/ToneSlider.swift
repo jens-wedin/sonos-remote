@@ -11,12 +11,12 @@ struct ToneSlider: View {
     @State private var local: Double = 0
 
     var body: some View {
-        Text(label).font(.callout).frame(width: 52, alignment: .leading)
+        Text(label).font(.callout).frame(width: 52, alignment: .leading).accessibilityHidden(true)
         Slider(value: $local, in: Double(range.lowerBound)...Double(range.upperBound), step: 1) { editing in
             if !editing, Int(local) != value { onChange(Int(local)) }
         }
         .accessibilityLabel("\(label) for \(room)")
-        .accessibilityValue("\(Int(local))")
+        .accessibilityValue(ToneValue.string(Int(local)))
         .onTapGesture(count: 2) { local = 0; onChange(0) }
         Text(ToneValue.string(Int(local)))
             .font(.callout.monospacedDigit())

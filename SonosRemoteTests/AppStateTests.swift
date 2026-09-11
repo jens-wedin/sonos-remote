@@ -87,6 +87,41 @@ import SonosKit
         #expect(appState.soundPlayerID == "p1")
     }
 
+    @Test func soundPlayerPersistsOutsideTheSelectedGroupUntilItVanishes() {
+        let appState = makeAppState()
+        let g = Group(id: "g", name: "g", coordinatorID: "p1", playerIDs: ["p1", "p2"], playbackState: .idle, volume: .silent, nowPlaying: nil)
+        let h = Group(id: "h", name: "h", coordinatorID: "p3", playerIDs: ["p3"], playbackState: .idle, volume: .silent, nowPlaying: nil)
+        let players = [
+            Player(id: "p1", name: "p1", address: "10.0.0.1", hasSub: false),
+            Player(id: "p2", name: "p2", address: "10.0.0.2", hasSub: false),
+            Player(id: "p3", name: "p3", address: "10.0.0.3", hasSub: false),
+        ]
+        appState.apply(HouseholdSnapshot(status: .ready, groups: [g, h], players: players))
+        appState.select("g")
+        appState.soundPlayerID = "p3"
+
+        // p3's group ("h") is still around, so picking it (a legitimate cross-group choice
+        // on the Sound screen) must survive an unrelated snapshot, not snap back to "g".
+        appState.apply(HouseholdSnapshot(status: .ready, groups: [g, h], players: players))
+        #expect(appState.soundPlayerID == "p3")
+
+        // p3 (and its group) is gone: re-anchor to the selected group's coordinator.
+        appState.apply(HouseholdSnapshot(status: .ready, groups: [g], players: Array(players.prefix(2))))
+        #expect(appState.soundPlayerID == "p1")
+    }
+
+    @Test func favoritesTargetReresolvesWhenItsGroupVanishes() {
+        let appState = makeAppState()
+        appState.apply(snapshot([group("a", .idle), group("b", .idle)]))
+        appState.select("a")
+        appState.show(.favorites)
+        #expect(appState.favoritesTargetGroupID == "a")
+
+        appState.apply(snapshot([group("b", .idle), group("c", .idle)]))
+        #expect(appState.selectedGroupID == "b")
+        #expect(appState.favoritesTargetGroupID == "b")
+    }
+
     @Test func tickRunsOnlyWhilePresentedAndPlaying() async throws {
         let appState = makeAppState(tickInterval: .milliseconds(20))
         appState.apply(snapshot([group("a", .playing)]))
@@ -124,6 +159,52 @@ import SonosKit
 
         try await Task.sleep(for: .milliseconds(150))
         #expect(appState.rowErrors[groupID] == nil)
+    }
+
+    @Test func applyPresetWritesBassAndTrebleAndKeepsLoudnessAndSub() {
+        let appState = makeAppState()
+        appState.eqByPlayer["p1"] = EQSettings(bass: 5, treble: -5, loudness: true, subGain: 4)
+        appState.applyPreset(.warm, player: "p1")
+        let eq = appState.eqByPlayer["p1"]
+        #expect(eq?.bass == TonePreset.warm.bass)
+        #expect(eq?.treble == TonePreset.warm.treble)
+        #expect(eq?.loudness == true)
+        #expect(eq?.subGain == 4)
+    }
+
+    @Test func resetToneZeroesBassTrebleAndSubWhenThePlayerHasASub() {
+        let appState = makeAppState()
+        appState.eqByPlayer["p1"] = EQSettings(bass: 5, treble: -5, loudness: true, subGain: 4)
+        appState.resetTone(player: "p1")
+        let eq = appState.eqByPlayer["p1"]
+        #expect(eq?.bass == 0)
+        #expect(eq?.treble == 0)
+        #expect(eq?.subGain == 0)
+    }
+
+    @Test func resetToneLeavesSubNilWhenThePlayerHasNoSub() {
+        let appState = makeAppState()
+        appState.eqByPlayer["p1"] = EQSettings(bass: 5, treble: -5, loudness: true, subGain: nil)
+        appState.resetTone(player: "p1")
+        let eq = appState.eqByPlayer["p1"]
+        #expect(eq?.bass == 0)
+        #expect(eq?.treble == 0)
+        #expect(eq?.subGain == nil)
+    }
+
+    @Test func showingFavoritesClearsTheSearchField() {
+        let appState = makeAppState()
+        appState.favoritesSearch = "jazz"
+        appState.show(.favorites)
+        #expect(appState.favoritesSearch == "")
+    }
+
+    @Test func selectingAnUnknownGroupLeavesTheSelectionUnchanged() {
+        let appState = makeAppState()
+        appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
+        appState.select("a")
+        appState.select("unknown")
+        #expect(appState.selectedGroupID == "a")
     }
 
     @Test func retryDiscoveryReplacesHouseholdAndResetsSnapshot() {

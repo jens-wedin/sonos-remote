@@ -36,7 +36,6 @@ struct RoomRowView: View {
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
 
                 VolumeSliderView(
-                    label: group.name,
                     volume: group.volume,
                     accessibilityName: group.name,
                     style: .compact,

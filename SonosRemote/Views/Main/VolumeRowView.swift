@@ -7,7 +7,6 @@ struct VolumeRowView: View {
 
     var body: some View {
         VolumeSliderView(
-            label: "Volume",
             volume: group.volume,
             accessibilityName: group.name,
             style: .hero,

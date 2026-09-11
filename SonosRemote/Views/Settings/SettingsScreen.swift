@@ -35,7 +35,7 @@ struct SettingsScreen: View {
             SectionLabel("GENERAL")
             Card {
                 CardRow(isFirst: true) {
-                    Text("Launch at login").font(.callout)
+                    Text("Launch at login").font(.callout).accessibilityHidden(true)
                     Spacer()
                     Toggle("Launch at login", isOn: $launchAtLogin)
                         .toggleStyle(.switch)

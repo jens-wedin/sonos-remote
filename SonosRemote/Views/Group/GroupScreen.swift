@@ -63,6 +63,7 @@ private struct MembershipRow: View {
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
+        .accessibilityHidden(true)
         Spacer()
         Toggle(isOn: Binding(
             get: { isMember },

@@ -11,6 +11,7 @@ struct HeaderView: View {
                     .font(.system(size: 12, weight: .bold))
                     .tracking(1.6)
                     .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
             } else {
                 Button { state.back() } label: {
                     Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)).frame(width: 22, height: 22)
@@ -22,11 +23,12 @@ struct HeaderView: View {
                 Text(state.screen.title)
                     .font(.system(size: 12, weight: .bold))
                     .tracking(1.6)
+                    .accessibilityAddTraits(.isHeader)
             }
             Spacer()
             ForEach(Screen.iconScreens, id: \.self) { screen in
                 IconButton(systemImage: screen.systemImage, label: screen.accessibilityName, isActive: state.screen == screen) {
-                    withAnimation(.easeInOut(duration: 0.2)) { state.show(screen) }
+                    state.show(screen)
                 }
             }
         }

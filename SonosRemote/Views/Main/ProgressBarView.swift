@@ -11,6 +11,7 @@ struct ProgressBarView: View {
         let _ = state.tick
         let position = PlaybackDisplay.displayedPosition(progress: group.progress, state: group.playbackState, now: .now)
         let source = group.nowPlaying.flatMap(PlaybackDisplay.sourceLine(for:))
+        let rendersContent = (position != nil && group.progress.durationMillis != nil) || source != nil
         VStack(spacing: 4) {
             if let position, let duration = group.progress.durationMillis {
                 GeometryReader { geometry in
@@ -43,6 +44,6 @@ struct ProgressBarView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 10)
+        .padding(.top, rendersContent ? 10 : 0)
     }
 }

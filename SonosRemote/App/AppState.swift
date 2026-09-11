@@ -47,7 +47,6 @@ final class AppState {
     private var tickTask: Task<Void, Never>?
     private var panelPresented = false
     private var resolvedInitialSelection = false
-    private var lastGroupIDs: Set<String> = []
     private var errorGeneration: [String: Int] = [:]
     private static let selectedGroupKey = "selectedGroupID"
 
@@ -87,6 +86,7 @@ final class AppState {
         let transport = URLSessionTransport()
         household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
         snapshot = HouseholdSnapshot()
+        rowErrors = [:]
         updateTicking()
         start()
     }
@@ -94,16 +94,21 @@ final class AppState {
     func apply(_ snapshot: HouseholdSnapshot) {
         self.snapshot = snapshot
         guard !snapshot.groups.isEmpty else { updateTicking(); return }
-        let groupIDs = Set(snapshot.groups.map(\.id))
-        let topologyChanged = groupIDs != lastGroupIDs
         let stillExists = selectedGroupID.map { id in snapshot.groups.contains { $0.id == id } } ?? false
-        if !stillExists || !resolvedInitialSelection || (topologyChanged && selectedGroupID == nil) {
+        if !stillExists || !resolvedInitialSelection {
             selectedGroupID = SelectionPolicy.resolve(remembered: selectedGroupID, groups: snapshot.groups)
         }
         resolvedInitialSelection = true
-        lastGroupIDs = groupIDs
-        if let group = selectedGroup, !group.playerIDs.contains(soundPlayerID ?? "") {
-            soundPlayerID = group.coordinatorID
+        // The Favorites picker targets one group; if it disappears (regrouped from the Sonos
+        // app while the screen is open), fall back to the room every screen shows.
+        if let target = favoritesTargetGroupID, snapshot.group(target) == nil {
+            favoritesTargetGroupID = selectedGroupID
+        }
+        // The Sound screen's picker is over ALL players, not just the selected group's (spec
+        // §5), so a player outside the selected group is a legitimate choice; only re-anchor
+        // when the chosen player no longer exists at all.
+        if soundPlayerID.flatMap(snapshot.player) == nil {
+            soundPlayerID = selectedGroup?.coordinatorID
         }
         updateTicking()
     }

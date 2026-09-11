@@ -56,7 +56,7 @@ private struct ToggleGlyph: View {
         Button { action(!isOn) } label: {
             Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                .foregroundStyle(!enabled ? Color.secondary.opacity(0.4) : isOn ? Color.accentColor : Color.secondary)
                 .frame(width: 28, height: 28)
         }
         .disabled(!enabled)

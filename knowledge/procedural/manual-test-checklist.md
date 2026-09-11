@@ -14,3 +14,4 @@ Preconditions: at least one room playing, one multi-room group, Terminal has Loc
 10. Quit from the footer.
 11. Power off or disconnect every speaker (or the router): within ~30 s the panel shows "No Sonos found on this network" with Retry, not an empty list; power back on and Retry (or wait) → rows return.
 12. Navigation: tapping the active icon returns to main; switching screens slides; the panel height follows the content and scrolls above 640 pt (a household with 10+ favorites).
+13. Close the panel with music playing; within a few seconds Activity Monitor shows the app idle (no once-per-second CPU wakeups). Reopen: the progress bar resumes ticking.

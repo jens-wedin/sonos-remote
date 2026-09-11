@@ -50,7 +50,7 @@ struct SoundScreen: View {
                     Card {
                         CardRow(isFirst: true) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Loudness").font(.callout)
+                                Text("Loudness").font(.callout).accessibilityHidden(true)
                                 Text("Boosts bass and treble at low volume").font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
