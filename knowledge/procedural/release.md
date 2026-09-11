@@ -29,6 +29,8 @@ Releases are built on the owner's Mac by `scripts/release.sh`, signed with a Dev
    The script refuses to run on a dirty tree, an existing tag, a missing changelog section, or missing credentials. It writes everything under `.build/release/X.Y.Z/`, creates the `vX.Y.Z` tag through the GitHub Release, uploads `Remote-for-Sonos-X.Y.Z.zip`, and pushes the updated cask.
 4. On another Mac: `brew install --cask jens-wedin/tap/remote-for-sonos`, launch, allow Local Network access, check that rooms appear.
 
+Preflight treats untracked files as a dirty tree (`git status --porcelain`), so commit or locally exclude stray files (for example design files under `knowledge/design/`) before running the script.
+
 ## Rehearsing without credentials
 
 `scripts/release.sh X.Y.Z --skip-notarize --identity "Apple Development: hello@jenswedin.com (4B85FPKBH8)"` exercises archive, signing, and packaging with the development certificate and stops before notarization and publishing. Never distribute such a build.
