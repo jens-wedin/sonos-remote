@@ -9,50 +9,54 @@ struct StatusBannerView: View {
         case .ready:
             EmptyView()
         case .discovering:
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Looking for Sonos…").font(.callout).foregroundStyle(.secondary)
+            Banner(color: .gray) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Looking for Sonos…").font(.callout).foregroundStyle(.secondary)
+                }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .accessibilityElement(children: .combine)
         case .noPlayersFound:
-            VStack(alignment: .leading, spacing: 6) {
-                Text("No Sonos found on this network").font(.callout.weight(.semibold))
-                Text("Your Mac must be on the same Wi‑Fi or wired network as the speakers.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button("Retry") { state.retryDiscovery() }.controlSize(.small)
+            Banner(color: .gray) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("No Sonos found on this network").font(.callout.weight(.semibold))
+                    Text("Your Mac must be on the same Wi‑Fi or wired network as the speakers.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Retry") { state.retryDiscovery() }.controlSize(.small)
+                }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
         case .unauthorized:
-            Banner(
-                title: "Authentication is switched on in the Sonos app",
-                detail: "Turn it off under Settings → System → Network → Connection security so this app can control your speakers.",
-                color: .yellow
-            )
+            Banner(color: .yellow) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Authentication is switched on in the Sonos app").font(.callout.weight(.semibold))
+                    Text("Turn it off under Settings → System → Network → Connection security so this app can control your speakers.").font(.caption)
+                }
+            }
         case .localNetworkDenied:
-            Banner(
-                title: "Local Network access is off",
-                detail: "Allow Sonos Remote under System Settings → Privacy & Security → Local Network, then quit and reopen the app.",
-                color: .yellow
-            )
+            Banner(color: .yellow) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Local Network access is off").font(.callout.weight(.semibold))
+                    Text("Allow Remote for Sonos under System Settings → Privacy & Security → Local Network, then quit and reopen the app.").font(.caption)
+                }
+            }
         }
     }
 }
 
-private struct Banner: View {
-    let title: String
-    let detail: String
+/// The status card: a coloured dot, the content, the shared rounded background.
+private struct Banner<Content: View>: View {
     let color: Color
+    @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.callout.weight(.semibold))
-            Text(detail).font(.caption)
+        HStack(alignment: .top, spacing: 10) {
+            Circle().fill(color).frame(width: 8, height: 8).padding(.top, 5).accessibilityHidden(true)
+            content()
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
-        .padding(.horizontal, 10).padding(.vertical, 6)
+        .padding(12)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
         .accessibilityElement(children: .combine)
     }
 }

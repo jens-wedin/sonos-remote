@@ -1,15 +1,22 @@
 import SwiftUI
 import SonosKit
 
-/// A labelled 0–100 slider with a mute button. Sends through VolumeCommandGate so dragging
+/// A 0–100 slider with a mute button. Sends through VolumeCommandGate so dragging
 /// does not flood the speaker and incoming events do not fight the thumb.
 struct VolumeSliderView: View {
+    enum Style {
+        /// Label, slider, readout, mute (kept for future per-room lists).
+        case labelled
+        /// Rooms list: slider and mute only.
+        case compact
+        /// Main screen volume row: mute glyph on the left, slider, readout.
+        case hero
+    }
+
     let label: String
     let volume: Volume
     let accessibilityName: String
-    var indent = false
-    /// Closed-row layout: no label, no numeric readout, just the slider and mute button.
-    var compact = false
+    var style: Style = .labelled
     let onChange: (Int) -> Void
     let onMute: (Bool) -> Void
 
@@ -24,12 +31,12 @@ struct VolumeSliderView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if !compact {
+            if style == .hero { muteButton(glyph: "speaker.wave.1", size: 15) }
+            if style == .labelled {
                 Text(label)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(width: indent ? 66 : 78, alignment: .leading)
-                    .padding(.leading, indent ? 12 : 0)
+                    .frame(width: 78, alignment: .leading)
             }
             Slider(value: $local, in: 0...100, step: 1) { editing in
                 isUserEditing = editing
@@ -47,24 +54,30 @@ struct VolumeSliderView: View {
                 guard !isProgrammaticUpdate else { return }
                 if let send = gate.userChanged(to: Int(newValue), at: .now) { onChange(send) } else { scheduleFlush() }
             }
-            if !compact {
+            if style != .compact {
                 Text("\(Int(local))")
-                    .font(.caption.monospacedDigit())
+                    .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(width: 24, alignment: .trailing)
+                    .frame(width: 28, alignment: .trailing)
                     .accessibilityHidden(true)
             }
-            Button { onMute(!volume.muted) } label: {
-                Image(systemName: volume.muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(volume.muted ? "Unmute \(accessibilityName)" : "Mute \(accessibilityName)")
+            if style != .hero { muteButton(glyph: "speaker.wave.2.fill", size: 12) }
         }
         .onAppear { setLocalProgrammatically(Double(volume.level)) }
         .onChange(of: volume.level) { _, incoming in
             if !isUserEditing, gate.shouldAcceptIncoming(at: .now) { setLocalProgrammatically(Double(incoming)) }
         }
         .onDisappear { flushTask?.cancel() }
+    }
+
+    private func muteButton(glyph: String, size: CGFloat) -> some View {
+        Button { onMute(!volume.muted) } label: {
+            Image(systemName: volume.muted ? "speaker.slash.fill" : glyph)
+                .font(.system(size: size))
+                .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(volume.muted ? "Unmute \(accessibilityName)" : "Mute \(accessibilityName)")
     }
 
     /// Writes `local` on our own behalf (not a user edit) with the guard flag held across the

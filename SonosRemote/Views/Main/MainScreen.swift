@@ -3,10 +3,22 @@ import SonosKit
 
 struct MainScreen: View {
     @Environment(AppState.self) private var state
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             StatusBannerView()
-            Text("Main screen: replaced in Task 5").font(.caption).foregroundStyle(.secondary).padding(16)
+            HeroView(group: state.selectedGroup)
+            if let group = state.selectedGroup {
+                ProgressBarView(group: group)
+            }
+            TransportView(group: state.selectedGroup)
+            if let group = state.selectedGroup {
+                VolumeRowView(group: group)
+            }
+            if !state.snapshot.groups.isEmpty {
+                RoomsListView()
+            }
         }
+        .padding(.bottom, 12)
     }
 }

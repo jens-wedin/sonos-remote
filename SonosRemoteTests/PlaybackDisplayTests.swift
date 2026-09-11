@@ -36,4 +36,20 @@ import SonosKit
         #expect(PlaybackDisplay.remainingString(position: 102_500, duration: 290_000) == "−3:08")
         #expect(PlaybackDisplay.remainingString(position: 300_000, duration: 290_000) == "−0:00")
     }
+
+    @Test func nowPlayingLineUsesTitleContainerOrNotPlaying() {
+        let now = NowPlaying(title: "Blue in Green", containerName: "P3")
+        var group = Group(id: "g", name: "Kitchen", coordinatorID: "p", playerIDs: ["p"], playbackState: .playing, volume: .silent, nowPlaying: now, progress: progress(position: 0))
+        #expect(PlaybackDisplay.nowPlayingLine(for: group) == "Blue in Green")
+        group.progress = progress(position: 0, duration: nil)
+        #expect(PlaybackDisplay.nowPlayingLine(for: group) == "P3", "radio shows the station (container) instead of the track")
+        group.playbackState = .idle
+        #expect(PlaybackDisplay.nowPlayingLine(for: group) == "Not playing")
+    }
+
+    @Test func sourceLineJoinsServiceAndContainer() {
+        #expect(PlaybackDisplay.sourceLine(for: NowPlaying(title: "t", serviceName: "Spotify", containerName: "Soft Evening Mix")) == "Spotify · Soft Evening Mix")
+        #expect(PlaybackDisplay.sourceLine(for: NowPlaying(title: "t", serviceName: "Spotify")) == "Spotify")
+        #expect(PlaybackDisplay.sourceLine(for: NowPlaying(title: "t")) == nil)
+    }
 }

@@ -28,4 +28,17 @@ enum PlaybackDisplay {
     private static func format(totalSeconds: Int) -> String {
         "\(totalSeconds / 60):" + String(format: "%02d", totalSeconds % 60)
     }
+
+    /// Rooms list second line and the Group screen line: the track, the station for radio, or "Not playing".
+    static func nowPlayingLine(for group: Group) -> String {
+        guard group.playbackState != .idle, let now = group.nowPlaying else { return "Not playing" }
+        if group.progress.durationMillis == nil, let container = now.containerName { return container }
+        return now.title
+    }
+
+    /// "Spotify · Soft Evening Mix"; nil when the item names neither a service nor a container.
+    static func sourceLine(for now: NowPlaying) -> String? {
+        let parts = [now.serviceName, now.containerName].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 }
