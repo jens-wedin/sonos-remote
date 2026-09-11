@@ -65,9 +65,11 @@ struct VolumeSliderView: View {
         Button { onMute(!volume.muted) } label: {
             Image(systemName: volume.muted ? "speaker.slash.fill" : glyph)
                 .font(.system(size: size))
-                .frame(width: 22, height: 22)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
+        .focusable()
         .accessibilityLabel(volume.muted ? "Unmute \(accessibilityName)" : "Mute \(accessibilityName)")
     }
 

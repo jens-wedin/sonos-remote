@@ -28,6 +28,7 @@ struct SettingsScreen: View {
                         Image(systemName: "arrow.clockwise").frame(width: 28, height: 28)
                     }
                     .buttonStyle(.plain)
+                    .focusable()
                     .accessibilityLabel("Refresh connection")
                 }
             }
@@ -70,6 +71,7 @@ struct SettingsScreen: View {
                         .contentShape(Rectangle())
                     }
                     .foregroundStyle(.primary)
+                    .focusable()
                     .accessibilityLabel("Releases on GitHub")
                 }
             }

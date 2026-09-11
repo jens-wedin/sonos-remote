@@ -14,9 +14,13 @@ struct HeaderView: View {
                     .accessibilityAddTraits(.isHeader)
             } else {
                 Button { state.back() } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)).frame(width: 22, height: 22)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusable()
                 .accessibilityLabel("Back")
                 .keyboardShortcut("[", modifiers: .command)
                 Artwork(url: state.selectedGroup?.nowPlaying?.artworkURL, size: 22)

@@ -16,6 +16,7 @@ struct IconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .focusable()
         .accessibilityLabel(label)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
     }

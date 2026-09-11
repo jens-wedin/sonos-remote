@@ -25,6 +25,7 @@ struct FavoriteRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .focusable()
         .accessibilityLabel("Play \(favorite.name)")
     }
 }

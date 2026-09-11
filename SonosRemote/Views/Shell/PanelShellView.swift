@@ -9,6 +9,7 @@ struct PanelShellView: View {
 
     @State private var bodyHeight: CGFloat = 0
     private static let maximumBodyHeight: CGFloat = 640
+    @FocusState private var focus: PanelFocus?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,6 +26,7 @@ struct PanelShellView: View {
             FooterView()
         }
         .frame(width: 420)
+        .defaultFocus($focus, .playPause)
         .onExitCommand(perform: closePanel)
         .onChange(of: panel.isPresented, initial: true) { _, presented in state.setPanelPresented(presented) }
         // Belt-and-braces: if the panel's window is torn down without `panel.isPresented`
@@ -36,7 +38,7 @@ struct PanelShellView: View {
     @ViewBuilder private var screenView: some View {
         ZStack(alignment: .top) {
             switch state.screen {
-            case .main: MainScreen().transition(.move(edge: .leading))
+            case .main: MainScreen(focus: $focus).transition(.move(edge: .leading))
             case .favorites: FavoritesScreen().transition(.move(edge: .trailing))
             case .sound: SoundScreen().transition(.move(edge: .trailing))
             case .group: GroupScreen().transition(.move(edge: .trailing))

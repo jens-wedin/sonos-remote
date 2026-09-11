@@ -12,6 +12,7 @@ struct PresetChips: View {
                     Chip(title: preset.name, lit: current == preset)
                 }
                 .buttonStyle(.plain)
+                .focusable()
                 .accessibilityLabel(preset.name)
                 .accessibilityAddTraits(current == preset ? [.isSelected] : [])
             }

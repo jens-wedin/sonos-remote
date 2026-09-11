@@ -7,6 +7,7 @@ struct FooterView: View {
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
+                .focusable()
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .keyboardShortcut("q")

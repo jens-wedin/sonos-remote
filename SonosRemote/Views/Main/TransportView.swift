@@ -5,6 +5,7 @@ import SonosKit
 struct TransportView: View {
     @Environment(AppState.self) private var state
     let group: SonosGroup?
+    let focus: FocusState<PanelFocus?>.Binding
 
     var body: some View {
         let progress = group?.progress
@@ -14,8 +15,14 @@ struct TransportView: View {
                 if let group { state.setShuffle(on, group: group.id) }
             }
             Button { if let group { state.previous(group: group.id) } } label: {
-                Image(systemName: "backward.end.fill").font(.system(size: 18))
+                Image(systemName: "backward.end.fill")
+                    .font(.system(size: 18))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
+            .focusable()
+            .keyboardShortcut(.leftArrow, modifiers: .command)
             .accessibilityLabel("Previous track")
 
             Button { if let group { state.togglePlayPause(group: group.id) } } label: {
@@ -27,24 +34,34 @@ struct TransportView: View {
                     .frame(width: 56, height: 56)
                     .background(Circle().fill(Color(nsColor: .labelColor)))
             }
+            .buttonStyle(.borderless)
+            .focusable()
+            .focused(focus, equals: .playPause)
+            .keyboardShortcut(.space, modifiers: [])
             .accessibilityLabel(isPlaying ? "Pause" : "Play")
 
             Button { if let group { state.next(group: group.id) } } label: {
-                Image(systemName: "forward.end.fill").font(.system(size: 18))
+                Image(systemName: "forward.end.fill")
+                    .font(.system(size: 18))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
+            .focusable()
+            .keyboardShortcut(.rightArrow, modifiers: .command)
             .accessibilityLabel("Next track")
             ToggleGlyph(systemImage: "repeat", label: "Repeat", isOn: progress?.repeatEnabled ?? false, enabled: progress?.canRepeat ?? false) { on in
                 if let group { state.setRepeat(on, group: group.id) }
             }
         }
-        .buttonStyle(.borderless)
         .disabled(group == nil)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
     }
 }
 
-/// Shuffle / repeat: accent colour when on, disabled when the speaker cannot do it.
+/// Shuffle / repeat: accent colour plus a background fill when on (not colour alone), disabled
+/// when the speaker cannot do it.
 private struct ToggleGlyph: View {
     let systemImage: String
     let label: String
@@ -58,9 +75,14 @@ private struct ToggleGlyph: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(!enabled ? Color.secondary.opacity(0.4) : isOn ? Color.accentColor : Color.secondary)
                 .frame(width: 28, height: 28)
+                .background(isOn ? AnyShapeStyle(Color.accentColor.opacity(0.18)) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.borderless)
+        .focusable()
         .disabled(!enabled)
         .accessibilityLabel(label)
         .accessibilityValue(isOn ? "on" : "off")
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
     }
 }

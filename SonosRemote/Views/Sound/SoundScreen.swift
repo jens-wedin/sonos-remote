@@ -25,6 +25,7 @@ struct SoundScreen: View {
                     SectionLabel("TONE") {
                         Button("Reset") { state.resetTone(player: playerID) }
                             .buttonStyle(.link)
+                            .focusable()
                             .font(.caption)
                             .accessibilityLabel("Reset tone for \(player.name)")
                     }

@@ -12,9 +12,13 @@ struct SearchField: View {
                 .accessibilityLabel(prompt)
             if !text.isEmpty {
                 Button { text = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusable()
                 .accessibilityLabel("Clear search")
             }
         }

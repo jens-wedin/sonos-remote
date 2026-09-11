@@ -13,6 +13,7 @@ struct RoomsListView: View {
                     Label("Group", systemImage: "link").font(.caption.weight(.medium))
                 }
                 .buttonStyle(.plain)
+                .focusable()
                 .foregroundStyle(state.selectedGroup == nil ? Color.accentColor.opacity(0.4) : Color.accentColor)
                 .disabled(state.selectedGroup == nil)
                 .accessibilityLabel("Group rooms")
