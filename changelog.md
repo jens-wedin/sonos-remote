@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-12
+
 ### Changed
 - Speaker certificates are pinned on first contact and discovered addresses are validated; malformed network data no longer crashes the app.
 - The panel keeps only household subscriptions while closed and no longer subscribes to per-player volume; the app re-renders only what changed.
