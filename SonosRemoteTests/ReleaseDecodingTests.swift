@@ -70,3 +70,44 @@ private final class FixtureAnchor {}
         #expect(request.timeoutInterval == 8)
     }
 }
+
+/// Answers every request with a canned status and body; installed in an ephemeral session's `protocolClasses`.
+final class StubURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var status = 200
+    nonisolated(unsafe) static var body = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: Self.status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+@Suite(.serialized) struct GitHubReleaseSourceTests {
+    private func stubSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    @Test func nonSuccessStatusThrowsHTTPError() async {
+        StubURLProtocol.status = 503
+        StubURLProtocol.body = Data("Service Unavailable".utf8)
+        let source = GitHubReleaseSource(session: stubSession(), userAgentVersion: "0.2.1")
+        await #expect(throws: ReleaseSourceError.http(503)) { try await source.latest() }
+    }
+
+    @Test func successStatusDecodesTheBody() async throws {
+        StubURLProtocol.status = 200
+        let url = try #require(Bundle(for: FixtureAnchor.self).url(forResource: "github-release-latest", withExtension: "json"))
+        StubURLProtocol.body = try Data(contentsOf: url)
+        let source = GitHubReleaseSource(session: stubSession(), userAgentVersion: "0.2.1")
+        let info = try await source.latest()
+        #expect(info.tag == "v0.2.1")
+        #expect(info.version == "0.2.1")
+    }
+}
