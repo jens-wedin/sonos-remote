@@ -161,6 +161,16 @@ import SonosKit
         #expect(appState.rowErrors[groupID] == nil)
     }
 
+    @Test func errorsAndStatusChangesAreAnnounced() {
+        let appState = makeAppState()
+        appState.report("g", LocalAPIError.http(status: 500))
+        #expect(appState.announcements.last == AppState.message(for: LocalAPIError.http(status: 500)))
+        var s = snapshot([group("a", .playing)])
+        s.status = .ready
+        appState.apply(s)
+        #expect(appState.announcements.last == "Connected to Sonos")
+    }
+
     @Test func applyPresetWritesBassAndTrebleAndKeepsLoudnessAndSub() {
         let appState = makeAppState()
         appState.eqByPlayer["p1"] = EQSettings(bass: 5, treble: -5, loudness: true, subGain: 4)

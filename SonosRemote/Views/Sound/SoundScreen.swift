@@ -73,6 +73,7 @@ struct SoundScreen: View {
                     }
                     .padding(16)
                     .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.updatesFrequently)
                 }
                 if let error = state.rowErrors[state.group(containing: playerID)?.id ?? playerID] {
                     ErrorLine(text: error)

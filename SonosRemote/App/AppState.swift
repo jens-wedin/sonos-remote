@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SonosKit
+import SwiftUI
 
 extension PlaybackState {
     /// Playing or about to play; these groups sort to the top of the panel.
@@ -14,24 +15,24 @@ final class AppState {
     // must not re-render when a volume event changes `groups`. Each is assigned only when
     // it actually differs, so an unchanged part never fires a mutation.
     private(set) var status: HouseholdStatus = .discovering
-    private(set) var groups: [Group] = []
+    private(set) var groups: [SonosGroup] = []
     private(set) var players: [Player] = []
     private(set) var favorites: [Favorite] = []
     private(set) var softwareVersion: String?
 
     /// Groups for display: the ones playing (or about to) first, then the rest, each tier by name.
     /// Stored, recomputed only when `groups` changes, so a render never sorts.
-    private(set) var orderedGroups: [Group] = []
+    private(set) var orderedGroups: [SonosGroup] = []
 
-    func group(_ id: String) -> Group? { groups.first { $0.id == id } }
+    func group(_ id: String) -> SonosGroup? { groups.first { $0.id == id } }
     func player(_ id: String) -> Player? { players.first { $0.id == id } }
-    func group(containing playerID: String) -> Group? { groups.first { $0.playerIDs.contains(playerID) } }
+    func group(containing playerID: String) -> SonosGroup? { groups.first { $0.playerIDs.contains(playerID) } }
 
     /// The one room every screen shows. Never nil while groups exist.
     var selectedGroupID: String? {
         didSet { defaults.set(selectedGroupID, forKey: Self.selectedGroupKey) }
     }
-    var selectedGroup: Group? { selectedGroupID.flatMap { group($0) } }
+    var selectedGroup: SonosGroup? { selectedGroupID.flatMap { group($0) } }
 
     // Navigation and per-screen state.
     private(set) var screen: Screen = .main
@@ -40,6 +41,9 @@ final class AppState {
     var soundPlayerID: String?
     var eqByPlayer: [String: EQSettings] = [:]
     var rowErrors: [String: String] = [:]
+
+    /// Every VoiceOver announcement posted, newest last (tests read it; the app posts it).
+    private(set) var announcements: [String] = []
 
     /// Increments once per second while the panel is visible and the selected group is playing;
     /// views read it so the progress bar re-renders between speaker reports.
@@ -105,7 +109,10 @@ final class AppState {
     func apply(_ snapshot: HouseholdSnapshot) {
         // Assign only what changed: an unchanged assignment still fires Observation's
         // mutation and re-renders every view that read the property.
-        if status != snapshot.status { status = snapshot.status }
+        if status != snapshot.status {
+            status = snapshot.status
+            if let text = Self.statusAnnouncement(snapshot.status) { announce(text) }
+        }
         if groups != snapshot.groups {
             groups = snapshot.groups
             orderedGroups = Self.ordered(snapshot.groups)
@@ -133,7 +140,7 @@ final class AppState {
         updateTicking()
     }
 
-    private static func ordered(_ groups: [Group]) -> [Group] {
+    private static func ordered(_ groups: [SonosGroup]) -> [SonosGroup] {
         groups.sorted { lhs, rhs in
             let lhsActive = lhs.playbackState.isActive
             let rhsActive = rhs.playbackState.isActive
@@ -244,6 +251,23 @@ final class AppState {
         updateEQ(eq, player: player)
     }
 
+    // MARK: Accessibility
+
+    func announce(_ message: String) {
+        announcements.append(message)
+        AccessibilityNotification.Announcement(message).post()
+    }
+
+    static func statusAnnouncement(_ status: HouseholdStatus) -> String? {
+        switch status {
+        case .ready: "Connected to Sonos"
+        case .discovering: "Looking for Sonos"
+        case .noPlayersFound: "No Sonos found on this network"
+        case .unauthorized: "Not authorized by the Sonos system"
+        case .localNetworkDenied: "Local network access is off"
+        }
+    }
+
     // MARK: Errors
 
     private func run(_ groupID: String, _ operation: @escaping @Sendable () async throws -> Void) {
@@ -258,6 +282,7 @@ final class AppState {
         let generation = (errorGeneration[groupID] ?? 0) + 1
         errorGeneration[groupID] = generation
         rowErrors[groupID] = Self.message(for: error)
+        announce(Self.message(for: error))
         Task { [clearDelay] in
             try? await Task.sleep(for: clearDelay)
             if errorGeneration[groupID] == generation { rowErrors[groupID] = nil }

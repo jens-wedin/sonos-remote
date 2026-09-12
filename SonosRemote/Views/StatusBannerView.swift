@@ -64,5 +64,6 @@ private struct Banner<Content: View>: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .accessibilityElement(children: combine ? .combine : .contain)
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }

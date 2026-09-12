@@ -32,8 +32,13 @@ struct RoomRowView: View {
                 .focused(focus, equals: group.id)
                 .onKeyPress(.space) { state.togglePlayPause(group: group.id); return .handled }
                 .onKeyPress(.return) { state.select(group.id); return .handled }
-                .accessibilityLabel("\(group.name), \(line)")
+                .accessibilityLabel(group.name)
+                .accessibilityValue(line)
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                .accessibilityHint("Press Space to play or pause")
+                .accessibilityAction(named: Text(group.playbackState == .playing ? "Pause" : "Play")) {
+                    state.togglePlayPause(group: group.id)
+                }
 
                 VolumeSliderView(
                     volume: group.volume,

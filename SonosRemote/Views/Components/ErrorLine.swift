@@ -10,5 +10,6 @@ struct ErrorLine: View {
             .foregroundStyle(.red)
             .padding(.horizontal, 16)
             .padding(.top, 4)
+            .accessibilityAddTraits(.updatesFrequently)
     }
 }

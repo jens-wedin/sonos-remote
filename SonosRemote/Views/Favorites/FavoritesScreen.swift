@@ -23,6 +23,7 @@ struct FavoritesScreen: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("\(filtered.count) favorites")
+                    .accessibilityAddTraits(.updatesFrequently)
             }
             if filtered.isEmpty {
                 Text(isSearching ? "No favorites match" : "No favorites in your Sonos system yet")

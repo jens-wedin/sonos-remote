@@ -73,6 +73,8 @@ private struct MembershipRow: View {
         .controlSize(.small)
         .labelsHidden()
         .disabled(isCoordinator)
-        .accessibilityLabel(isCoordinator ? "\(player.name), source of this group" : "\(player.name) in \(group.name)")
+        .accessibilityLabel(player.name)
+        .accessibilityValue(isMember ? "in \(group.name)" : "not in \(group.name)")
+        .accessibilityHint(isCoordinator ? "Source of this group" : (playingElsewhere ? "Playing elsewhere; switching it will move it to this group" : ""))
     }
 }

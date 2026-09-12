@@ -26,6 +26,7 @@ struct ProgressBarView: View {
                 .accessibilityElement()
                 .accessibilityLabel("Progress")
                 .accessibilityValue("\(PlaybackDisplay.timeString(millis: position)) of \(PlaybackDisplay.timeString(millis: duration))")
+                .accessibilityAddTraits(.updatesFrequently)
                 HStack {
                     Text(PlaybackDisplay.timeString(millis: position)).accessibilityHidden(true)
                     Spacer()
