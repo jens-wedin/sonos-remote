@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Added
+- The panel tells you when a newer release exists: an "Update available" card with a copyable `brew upgrade --cask remote-for-sonos` command and a "What's new" link, dismissable per version; Settings shows the available version and has a "Check for updates" switch (on by default, one request to github.com a day).
+
 ## [0.2.1] - 2026-09-12
 
 ### Changed

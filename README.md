@@ -16,6 +16,14 @@ On first launch macOS asks whether the app may find devices on your local networ
 
 The app talks to the speakers through Sonos's local Control API, which Sonos does not document for third parties. A future speaker firmware could change it.
 
+## Updating
+
+The panel shows an "Update available" card when a newer release exists. Click "Copy Homebrew command" and paste it in Terminal:
+
+    brew upgrade --cask remote-for-sonos
+
+If you installed from the zip, download the new zip from the Releases page instead. The card can be dismissed per version; Settings still shows the available version.
+
 ## Features (v0.2.0)
 
 - Menu bar panel (420 pt) with one selected room: artwork, title, artist, album, a progress bar with elapsed and remaining time, and shuffle / previous / play-pause / next / repeat.
@@ -23,12 +31,12 @@ The app talks to the speakers through Sonos's local Control API, which Sonos doe
 - Favorites screen: pick the room, search, play stations, playlists and albums.
 - Sound screen: Flat / Warm / Bright presets, bass, treble, sub (when the room has one), loudness, per speaker.
 - Group screen: join and release rooms with switches.
-- Settings screen: connection status with refresh, launch at login, a global shortcut, version and a link to releases.
+- Settings screen: connection status with refresh, launch at login, a global shortcut, a "Check for updates" switch, version (with the available update) and a link to releases.
 - Keyboard: Escape closes, Cmd-[ goes back, Up/Down/Return/Space work in the rooms list, Cmd-Q quits. VoiceOver labels on every control.
 
 ### Not yet
 
-Seeking by dragging the progress bar, balance, Speech Enhancement and Night Sound, pinned favorites, album art in the menu bar, in-app update checks. See `docs/superpowers/specs/2026-09-11-panel-redesign-design.md` for the round-2 list.
+Seeking by dragging the progress bar, balance, Speech Enhancement and Night Sound, pinned favorites, album art in the menu bar. See `docs/superpowers/specs/2026-09-11-panel-redesign-design.md` for the round-2 list.
 
 ## Panel layout
 
@@ -37,6 +45,8 @@ The panel has a header (the SONOS label or a back chevron plus the screen name, 
 ## How it works
 
 Discovery starts as soon as the app launches: it browses Bonjour for `_sonos._tcp` and contacts the first player it finds. If that player turns out to be unreachable — a stale Bonjour/mDNS entry from a speaker that's gone quiet, for instance — the app fails over to another discovered player and keeps retrying with backoff. If nothing answers within 10 seconds, the panel shows "No Sonos found on this network" with a Retry button. See `docs/research/2026-09-04-sonos-macos-research.md` for the platform research behind this design and `knowledge/domain/sonos-local-api.md` for the local API's exact behavior and quirks.
+
+Once a day the app asks github.com for the latest release so it can tell you when an update exists; switch it off under Settings → Check for updates. Nothing else leaves your network.
 
 ## Layout
 
