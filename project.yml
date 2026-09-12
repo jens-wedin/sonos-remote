@@ -23,7 +23,7 @@ settings:
     DEVELOPMENT_TEAM: FDBYWW84AR
     PROVISIONING_PROFILE_SPECIFIER: ""
     # Single source of truth for the version; scripts/release.sh overrides both on the command line.
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.1"
     CURRENT_PROJECT_VERSION: "1"
   configs:
     # Debug: the owner's development identity, stable across rebuilds so the Local Network grant survives.

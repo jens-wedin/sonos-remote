@@ -53,11 +53,11 @@ All new code lives in the app target; SonosKit is untouched.
 `SonosRemote/Views/Components/UpdateCard.swift`
 
 - `UpdateCard(release: ReleaseInfo, onCopy: () -> Void, onDismiss: () -> Void)`; layout: 40 pt tinted rounded square with `arrow.down` on the left; title `Update available — v<version>` in semibold (`Text(verbatim:)`); a second row with two plain buttons, "Copy Homebrew command" (label swaps to "Copied" for two seconds, announced) and "What's new" (a `Link` to `notesURL`, opens in the browser); an X button on the right. Card look: `Card` background, `Palette.border`; text in `Color.primary` / `Color.supporting`.
-- Accessibility: the card is a container (`children: .contain`); buttons labelled "Copy Homebrew upgrade command", "Show what's new in v<version>", "Dismiss update notice"; all three `.focusable()`; on first appearance for a version the view calls `state.announce("Update available, version <version>")` once (stored in `@State`).
+- Accessibility: the card is a container (`children: .contain`); buttons labelled "Copy Homebrew upgrade command", "Show what's new in v<version>", "Dismiss update notice"; all three `.focusable()`; on first appearance for a version the view calls `state.announce("Update available, version <version>")` once per app session (the checker remembers announced versions in `shouldAnnounce(_:)`; view state would reset on every screen switch).
 
 `SonosRemote/Views/Main/MainScreen.swift`: `UpdateCard` rendered between `StatusBannerView` and `HeroView` when `updates.available != nil`.
 
-`SonosRemote/Views/Settings/SettingsScreen.swift`: GENERAL card gains a "Check for updates" row (title, caption "Asks github.com once a day", switch bound to `updates.isEnabled`); the SYSTEM Version row shows a second line "Update available: <version>" with a "Copy Homebrew command" button when `updates.available` exists (even if dismissed on the main screen — see §4).
+`SonosRemote/Views/Settings/SettingsScreen.swift`: GENERAL card gains a "Check for updates" row (title, caption "Asks github.com once a day", switch bound to `updates.isEnabled`); the SYSTEM Version row shows a second line "Update available: <version>" with a "Copy Homebrew command" button when `updates.latestKnown` exists (so it stays visible after the card was dismissed — see §4).
 
 `SonosRemote/App/SonosRemoteApp.swift`: creates `UpdateChecker.live()`, calls `start()`, injects it with `.environment(updates)`; `PanelShellView` calls `updates.checkIfDue()` when `panel.isPresented` becomes true.
 

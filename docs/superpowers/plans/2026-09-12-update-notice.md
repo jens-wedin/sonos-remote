@@ -53,6 +53,8 @@ A second ruling: `checkIfDue()` does nothing when no `lastUpdateCheck` has ever 
 
 A third: `copyCommand()` writes to an injectable `NSPasteboard` (default `.general`) so the unit test uses a private named pasteboard and never overwrites the owner's clipboard.
 
+Rulings added during execution (2026-09-12): the "announced once per version" memory lives on `UpdateChecker.shouldAnnounce(_:)` (session lifetime), not in the card's `@State` as spec §3 said, because `PanelShellView` re-creates `MainScreen` on every screen switch and would re-announce; the Settings version row keys off `latestKnown` (spec §4), which resolves §3's wording that said `available`; the card's surface is the shared `Card` view rather than a copy of its modifiers; the copy button's label is `Color.primary` semibold, not accent-coloured, to keep caption text above 4.5:1.
+
 ---
 
 ### Task 1: SemanticVersion
