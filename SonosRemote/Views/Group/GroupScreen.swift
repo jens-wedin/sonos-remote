@@ -59,7 +59,7 @@ private struct MembershipRow: View {
             if isCoordinator {
                 Text("Source of this group").font(.caption).foregroundStyle(Color.supporting)
             } else if playingElsewhere, let now = elsewhere?.nowPlaying {
-                Text("Playing \(now.title), will switch to this group")
+                Text(verbatim: "Playing \(now.title), will switch to this group")
                     .font(.caption).foregroundStyle(Color.supporting).lineLimit(1)
             }
         }

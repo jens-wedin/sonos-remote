@@ -27,7 +27,7 @@ public final class URLSessionTransport: Transport, @unchecked Sendable {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             return APIResponse(status: status, body: data)
         } catch {
-            logger.error("request to \(request.url.absoluteString, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            logger.error("request to \(request.url.absoluteString) failed: \(String(describing: error), privacy: .public)")
             throw error
         }
     }

@@ -41,6 +41,7 @@ Preflight treats untracked files as a dirty tree (`git status --porcelain`), so 
 - The archived product is `SonosRemote.app`; the script copies it to `Remote for Sonos.app` for distribution. The bundle id stays `com.jenswedin.SonosRemote` and the executable stays `SonosRemote`, so `pgrep -x SonosRemote` keeps working.
 - Notarization is done on a zip of the app, then the ticket is stapled to the app and the final zip is rebuilt from the stapled app, so an offline first launch still passes Gatekeeper.
 - `packaging/remote-for-sonos.rb` is the cask template; the script fills in version and sha256.
+- Dependencies are pinned with `exactVersion` in project.yml; bump deliberately.
 
 ## Known gaps
 

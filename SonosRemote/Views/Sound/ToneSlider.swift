@@ -17,6 +17,7 @@ struct ToneSlider: View {
         }
         .accessibilityLabel("\(label) for \(room)")
         .accessibilityValue(ToneValue.string(Int(local)))
+        .accessibilityAction(named: Text("Reset \(label)")) { local = 0; onChange(0) }
         .onTapGesture(count: 2) { local = 0; onChange(0) }
         Text(ToneValue.string(Int(local)))
             .font(.callout.monospacedDigit())

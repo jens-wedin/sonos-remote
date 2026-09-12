@@ -13,7 +13,7 @@ actor PlayerSocket {
     }
 
     static let subprotocol = "v1.api.smartspeaker.audio"
-    static let pingInterval: Duration = .seconds(30)
+    static let pingInterval: Duration = .seconds(90)
 
     let playerID: String
     let url: URL

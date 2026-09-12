@@ -289,7 +289,10 @@ final class AppState {
         announce(Self.message(for: error))
         Task { [clearDelay] in
             try? await Task.sleep(for: clearDelay)
-            if errorGeneration[groupID] == generation { rowErrors[groupID] = nil }
+            if errorGeneration[groupID] == generation {
+                rowErrors[groupID] = nil
+                errorGeneration[groupID] = nil
+            }
         }
     }
 

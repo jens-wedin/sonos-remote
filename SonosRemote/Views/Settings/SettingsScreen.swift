@@ -5,7 +5,7 @@ import KeyboardShortcuts
 
 struct SettingsScreen: View {
     @Environment(AppState.self) private var state
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var launchAtLogin = false
     @State private var loginError: String?
 
     private static let releasesURL = URL(string: "https://github.com/jens-wedin/sonos-remote/releases")!
@@ -77,6 +77,7 @@ struct SettingsScreen: View {
             }
         }
         .padding(.bottom, 12)
+        .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
         .onChange(of: launchAtLogin) { _, on in
             guard on != (SMAppService.mainApp.status == .enabled) else { return }
             do {

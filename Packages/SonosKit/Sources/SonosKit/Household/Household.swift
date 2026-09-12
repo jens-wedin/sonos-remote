@@ -177,10 +177,10 @@ public actor Household {
         switch event {
         case .found(let player):
             guard player.hasLocalAddress else {
-                logger.error("ignoring discovered player \(player.id, privacy: .public): address is not on the local network")
+                logger.error("ignoring discovered player \(player.id): address is not on the local network")
                 return
             }
-            logger.info("discovery found player \(player.id, privacy: .public) at \(player.address, privacy: .public)")
+            logger.info("discovery found player \(player.id) at \(player.address)")
             removedPlayers.remove(player.id)
             // Moved to a new address: forget the old one and its pin before recording the new
             // one, since DHCP may already have handed it to some other device.
@@ -201,7 +201,7 @@ public actor Household {
                 startBootstrap()
             }
         case .lost(let playerID):
-            logger.info("discovery lost player \(playerID, privacy: .public)")
+            logger.info("discovery lost player \(playerID)")
             removedPlayers.insert(playerID)
             subProbed.remove(playerID)
             subProbeInFlight.remove(playerID)
@@ -289,7 +289,7 @@ public actor Household {
         let nextIndex = candidates.index(after: currentIndex)
         let next = candidates[nextIndex == candidates.endIndex ? candidates.startIndex : nextIndex]
         guard next != current else { return }
-        logger.info("bootstrap failing over gateway from \(current, privacy: .public) to \(next, privacy: .public)")
+        logger.info("bootstrap failing over gateway from \(current) to \(next)")
         gatewayID = next
     }
 
@@ -304,7 +304,7 @@ public actor Household {
 
     private func refreshTopology() async {
         guard let gateway = gatewayAddress() else { return }
-        logger.info("fetching topology from \(gateway, privacy: .public)")
+        logger.info("fetching topology from \(gateway)")
         do {
             let response = try await api.groups(from: gateway)
             // `stop()` may have run while this request was in flight; don't resurrect sockets
@@ -326,12 +326,12 @@ public actor Household {
             await reconcileSubscriptions()
             await probeSubs()
         } catch let error as LocalAPIError where error == .invalidAPIKey || error == .unauthorized {
-            logger.error("topology fetch from \(gateway, privacy: .public) unauthorized: \(String(describing: error), privacy: .public)")
+            logger.error("topology fetch from \(gateway) unauthorized: \(String(describing: error), privacy: .public)")
             apply(.status(.unauthorized))
         } catch {
             // Keep the previous snapshot; the bootstrap loop (before `.ready`) or the next
             // socket event/command (after) will retry.
-            logger.error("topology fetch from \(gateway, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            logger.error("topology fetch from \(gateway) failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -345,7 +345,7 @@ public actor Household {
             apply(.favorites(favorites))
             return true
         } catch {
-            logger.error("favorites fetch from \(gateway, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            logger.error("favorites fetch from \(gateway) failed: \(String(describing: error), privacy: .public)")
             return false
         }
     }
@@ -372,7 +372,7 @@ public actor Household {
         }
         for player in snapshot.players where sockets[player.id] == nil && !player.address.isEmpty {
             guard let socket = PlayerSocket(playerID: player.id, address: player.address, transport: transport, backoff: configuration.backoff, now: configuration.now) else {
-                logger.error("skipping player \(player.id, privacy: .public): unusable address")
+                logger.error("skipping player \(player.id): unusable address")
                 continue
             }
             sockets[player.id] = socket
@@ -405,10 +405,10 @@ public actor Household {
         let event: SocketEvent
         switch output {
         case .connected:
-            logger.info("socket connected for player \(playerID, privacy: .public)")
+            logger.info("socket connected for player \(playerID)")
             return
         case .disconnected:
-            logger.info("socket disconnected for player \(playerID, privacy: .public)")
+            logger.info("socket disconnected for player \(playerID)")
             return
         case .event(let socketEvent):
             event = socketEvent

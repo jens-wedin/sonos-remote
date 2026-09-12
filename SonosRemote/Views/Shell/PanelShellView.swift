@@ -10,6 +10,7 @@ struct PanelShellView: View {
     @State private var bodyHeight: CGFloat = 0
     private static let maximumBodyHeight: CGFloat = 640
     @FocusState private var focus: PanelFocus?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,13 +39,17 @@ struct PanelShellView: View {
     @ViewBuilder private var screenView: some View {
         ZStack(alignment: .top) {
             switch state.screen {
-            case .main: MainScreen(focus: $focus).transition(.move(edge: .leading))
-            case .favorites: FavoritesScreen().transition(.move(edge: .trailing))
-            case .sound: SoundScreen().transition(.move(edge: .trailing))
-            case .group: GroupScreen().transition(.move(edge: .trailing))
-            case .settings: SettingsScreen().transition(.move(edge: .trailing))
+            case .main: MainScreen(focus: $focus).transition(transition(edge: .leading))
+            case .favorites: FavoritesScreen().transition(transition(edge: .trailing))
+            case .sound: SoundScreen().transition(transition(edge: .trailing))
+            case .group: GroupScreen().transition(transition(edge: .trailing))
+            case .settings: SettingsScreen().transition(transition(edge: .trailing))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: state.screen)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: state.screen)
+    }
+
+    private func transition(edge: Edge) -> AnyTransition {
+        reduceMotion ? .opacity : .move(edge: edge)
     }
 }

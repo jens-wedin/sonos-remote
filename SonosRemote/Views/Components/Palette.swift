@@ -6,7 +6,7 @@ enum Palette {
     static let disabledOpacity = 0.55
 
     static func border(_ contrast: ColorSchemeContrast) -> Color {
-        Color.primary.opacity(contrast == .increased ? 0.55 : 0.25)
+        Color.primary.opacity(contrast == .increased ? 0.55 : 0.45)
     }
 }
 

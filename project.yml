@@ -10,10 +10,10 @@ packages:
     path: Packages/SonosKit
   MenuBarExtraAccess:
     url: https://github.com/orchetect/MenuBarExtraAccess
-    from: 1.3.0
+    exactVersion: 1.3.1
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
-    from: 3.0.0
+    exactVersion: 3.0.1
 settings:
   base:
     SWIFT_VERSION: "6.0"
