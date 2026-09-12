@@ -31,6 +31,10 @@ public actor Household {
     private var sockets: [String: PlayerSocket] = [:]
     private var socketTasks: [String: Task<Void, Never>] = [:]
     private var gatewayID: String?
+    /// Whether the menu bar panel is currently open; playback subscriptions exist only while
+    /// it is (perf audit H5). Persists across `stop()`/`start()` of the same instance, same as
+    /// `snapshot` — a reconnect must not silently drop playback subscriptions the panel still wants.
+    private var panelVisible = false
     private var addresses: [String: String] = [:]
     private var subProbed: Set<String> = []
     /// Ids currently awaiting a sub probe response, so a `probeSubs()` call that starts while
@@ -158,6 +162,13 @@ public actor Household {
 
     public func setEQ(_ eq: EQSettings, player id: String) async throws {
         try await upnp.apply(eq, address: playerAddress(id))
+    }
+
+    /// The app calls this when the menu bar panel opens or closes; playback subscriptions exist only while it is open.
+    public func setPanelVisible(_ visible: Bool) async {
+        guard visible != panelVisible else { return }
+        panelVisible = visible
+        await reconcileSubscriptions()
     }
 
     // MARK: Discovery handling
@@ -384,7 +395,7 @@ public actor Household {
     }
 
     private func reconcileSubscriptions() async {
-        let plan = SubscriptionPlan.make(groups: snapshot.groups, players: snapshot.players, gatewayID: gatewayID)
+        let plan = SubscriptionPlan.make(groups: snapshot.groups, players: snapshot.players, gatewayID: gatewayID, panelVisible: panelVisible)
         for (id, socket) in sockets {
             await socket.setSubscriptions(plan[id] ?? [])
         }

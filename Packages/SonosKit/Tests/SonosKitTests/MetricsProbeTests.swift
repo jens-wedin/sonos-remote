@@ -50,7 +50,7 @@ import Testing
     @Test func subscriptionsWhileClosed() {
         let player = Player(id: "P1", name: "Kitchen", address: "192.168.1.10", hasSub: false)
         let group = Group(id: "G1", name: "Kitchen", coordinatorID: "P1", playerIDs: ["P1"], playbackState: .idle, volume: .silent, nowPlaying: nil)
-        let plan = SubscriptionPlan.make(groups: [group], players: [player], gatewayID: "P1")
+        let plan = SubscriptionPlan.make(groups: [group], players: [player], gatewayID: "P1", panelVisible: false)
         let count = plan["P1"]?.count ?? 0
         let playerVolume = plan.values.contains { set in set.contains { $0.namespace == "playerVolume:1" } } ? 1 : 0
         print("METRIC perf.subscriptions_per_coordinator_closed=\(count)")

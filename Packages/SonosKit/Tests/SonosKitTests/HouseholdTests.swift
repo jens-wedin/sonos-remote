@@ -43,11 +43,15 @@ import Testing
         #expect(h.trust.shouldTrust(host: "192.168.1.216"))
         try await waitUntil { h.transport.socketCount == 4 }
         let flyttbar = try #require(h.transport.socket(forHost: "192.168.1.216"))
-        try await waitUntil { flyttbar.sentText.count == 4 }
-        #expect(flyttbar.sentText.contains { $0.contains(#""namespace":"playbackMetadata:1""#) && $0.contains(gid) })
         let stereoSocket = try #require(h.transport.socket(forHost: "192.168.1.105"))
-        try await waitUntil { stereoSocket.sentText.count == 3 }
+        try await waitUntil { stereoSocket.sentText.count == 2 }
         #expect(stereoSocket.sentText.contains { $0.contains(#""namespace":"groups:1""#) })
+        // Flyttbar coordinates a group but isn't the gateway; with the panel closed (the
+        // default) it gets no subscriptions at all (perf H5).
+        #expect(flyttbar.sentText.isEmpty)
+        await h.household.setPanelVisible(true)
+        try await waitUntil { flyttbar.sentText.count == 3 }
+        #expect(flyttbar.sentText.contains { $0.contains(#""namespace":"playbackMetadata:1""#) && $0.contains(gid) })
         // One SubCrossover probe per player.
         try await waitUntil { h.transport.requests(matching: "RenderingControl").count == 4 }
         await h.household.stop()
@@ -234,7 +238,9 @@ import Testing
         _ = try await h.startAndDiscover(stereo)
         try await waitUntil { h.transport.socketCount == 4 }
         let flyttbarSocket = try #require(h.transport.socket(forHost: "192.168.1.216"))
-        try await waitUntil { flyttbarSocket.sentText.count == 4 }
+        // Resubscribing on a group id change is only observable while the panel is open.
+        await h.household.setPanelVisible(true)
+        try await waitUntil { flyttbarSocket.sentText.count == 3 }
         let newGid = "RINCON_542A1B73A25001400:99"
         // Same header shape as events.jsonl's "groups" frame; the body regroups the four
         // players: Sovrum joins Flyttbar's group (under the new id above), Stereo becomes
@@ -386,5 +392,22 @@ import Testing
         try await Task.sleep(for: .milliseconds(200))
         counter.cancel()
         #expect(yields.withLock { $0 } <= 2, "initial snapshot plus at most one change")
+    }
+
+    // MARK: Task 6 (perf H5): playback subscriptions exist only while the panel is open
+
+    @Test func openingThePanelSubscribesToPlaybackAndClosingUnsubscribes() async throws {
+        let h = Harness()
+        _ = try await h.startAndDiscover(stereo)
+        // Flyttbar coordinates group `gid`; it is not the gateway, so with the panel closed
+        // its socket gets no subscriptions at all.
+        try await waitUntil { h.transport.socket(forHost: "192.168.1.216") != nil }
+        let socket = try #require(h.transport.socket(forHost: "192.168.1.216"))
+        try await waitUntil { !socket.sentText.contains { $0.contains("playback:1") && $0.contains("subscribe") } }
+        await h.household.setPanelVisible(true)
+        try await waitUntil { socket.sentText.contains { $0.contains("playback:1") && $0.contains("\"subscribe\"") } }
+        await h.household.setPanelVisible(false)
+        try await waitUntil { socket.sentText.contains { $0.contains("playback:1") && $0.contains("unsubscribe") } }
+        await h.household.stop()
     }
 }

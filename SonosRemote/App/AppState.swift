@@ -104,6 +104,9 @@ final class AppState {
         rowErrors = [:]
         updateTicking()
         start()
+        // The new household starts with no notion of panel visibility; re-apply it so playback
+        // subscriptions come back if the panel is currently open.
+        Task { [household, panelPresented] in await household.setPanelVisible(panelPresented) }
     }
 
     func apply(_ snapshot: HouseholdSnapshot) {
@@ -171,6 +174,7 @@ final class AppState {
     func setPanelPresented(_ presented: Bool) {
         panelPresented = presented
         updateTicking()
+        Task { [household] in await household.setPanelVisible(presented) }
     }
 
     private func updateTicking() {
