@@ -209,9 +209,9 @@ final class TestClock: @unchecked Sendable {
     @Test func copyCommandPutsTheBrewLineOnThePasteboard() {
         let source = FakeReleaseSource(.success(release("0.2.2")))
         let (checker, _, pasteboard) = makeChecker(source: source)
-        #expect(checker.brewCommand == "brew upgrade --cask remote-for-sonos")
+        #expect(checker.brewCommand == "brew update && brew upgrade --cask remote-for-sonos")
         checker.copyCommand()
-        #expect(pasteboard.string(forType: .string) == "brew upgrade --cask remote-for-sonos")
+        #expect(pasteboard.string(forType: .string) == "brew update && brew upgrade --cask remote-for-sonos")
     }
 
     @Test func shouldAnnounceIsTrueOncePerVersion() {

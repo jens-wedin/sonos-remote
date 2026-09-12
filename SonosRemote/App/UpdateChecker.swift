@@ -34,7 +34,7 @@ final class UpdateChecker {
         }
     }
 
-    let brewCommand = "brew upgrade --cask remote-for-sonos"
+    let brewCommand = "brew update && brew upgrade --cask remote-for-sonos"
 
     @ObservationIgnored private let source: any ReleaseSource
     @ObservationIgnored private let currentVersion: String

@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Changed
+- The copied upgrade command is now `brew update && brew upgrade --cask remote-for-sonos`, so it upgrades even when Homebrew's copy of the tap is a few hours stale (before, Homebrew could answer "already installed").
+
 ## [0.2.2] - 2026-09-12
 
 ### Added

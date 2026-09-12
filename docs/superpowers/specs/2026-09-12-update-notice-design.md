@@ -4,7 +4,7 @@ Date: 2026-09-12. Status: approved in conversation (owner: Jens). Builds on the 
 
 ## 1. Goal
 
-Tell the user, inside the panel, when a newer release of Remote for Sonos exists, and show them how to get it. The app is installed either through the Homebrew cask `jens-wedin/tap/remote-for-sonos` or from the release zip; both are updated with `brew upgrade --cask remote-for-sonos` or by downloading the new zip. The app is sandboxed and cannot run `brew` itself, so the notice guides rather than installs.
+Tell the user, inside the panel, when a newer release of Remote for Sonos exists, and show them how to get it. The app is installed either through the Homebrew cask `jens-wedin/tap/remote-for-sonos` or from the release zip; both are updated with `brew update && brew upgrade --cask remote-for-sonos` or by downloading the new zip. The app is sandboxed and cannot run `brew` itself, so the notice guides rather than installs.
 
 ### In scope
 
@@ -47,7 +47,7 @@ All new code lives in the app target; SonosKit is untouched.
   - `func checkIfDue()` — runs a check when enabled and `lastUpdateCheck` (UserDefaults) is older than 24 h; the panel calls it on open.
   - `func check() async` — fetches, ignores drafts/pre-releases, sets `available` when `SemanticVersion.isNewer(release.version, than: currentVersion)` and `release.version != dismissedVersion`, updates `lastUpdateCheck` on success or failure (so a failing endpoint is not hammered), logs failures.
   - `func dismiss()` — stores `dismissedUpdateVersion = available?.version` and clears `available`.
-  - `var brewCommand: String { "brew upgrade --cask remote-for-sonos" }` and `func copyCommand()` (NSPasteboard, general pasteboard).
+  - `var brewCommand: String { "brew update && brew upgrade --cask remote-for-sonos" }` and `func copyCommand()` (NSPasteboard, general pasteboard).
   - `init(source: any ReleaseSource, currentVersion: String, defaults: UserDefaults, now: @escaping () -> Date, initialDelay: Duration, interval: Duration)`; `static func live() -> UpdateChecker` uses `GitHubReleaseSource`, `AppVersion.short`, `.standard`, `Date.init`, 30 s and 24 h.
 
 `SonosRemote/Views/Components/UpdateCard.swift`
