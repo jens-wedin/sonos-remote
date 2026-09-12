@@ -5,12 +5,14 @@ import KeyboardShortcuts
 
 struct SettingsScreen: View {
     @Environment(AppState.self) private var state
+    @Environment(UpdateChecker.self) private var updates
     @State private var launchAtLogin = false
     @State private var loginError: String?
 
     private static let releasesURL = URL(string: "https://github.com/jens-wedin/sonos-remote/releases")!
 
     var body: some View {
+        @Bindable var updates = updates
         VStack(alignment: .leading, spacing: 0) {
             SectionLabel("CONNECTION")
             Card {
@@ -52,14 +54,37 @@ struct SettingsScreen: View {
                     KeyboardShortcuts.Recorder(for: .togglePanel)
                         .accessibilityLabel("Global shortcut")
                 }
+                CardRow {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Check for updates").font(.callout).accessibilityHidden(true)
+                        Text("Asks github.com once a day").font(.caption).foregroundStyle(Color.supporting).accessibilityHidden(true)
+                    }
+                    Spacer()
+                    Toggle("Check for updates", isOn: $updates.isEnabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .labelsHidden()
+                    .accessibilityHint("Asks github.com once a day")
+                }
             }
 
             SectionLabel("SYSTEM")
             Card {
                 CardRow(isFirst: true) {
-                    Text("Version").font(.callout)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Version").font(.callout)
+                        if let release = updates.latestKnown {
+                            Text(verbatim: "Update available: \(release.version)")
+                                .font(.caption).foregroundStyle(Color.supporting)
+                        }
+                    }
                     Spacer()
-                    Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
+                        if updates.latestKnown != nil {
+                            CopyCommandButton(onCopy: { updates.copyCommand() })
+                        }
+                    }
                 }
                 CardRow {
                     Link(destination: Self.releasesURL) {

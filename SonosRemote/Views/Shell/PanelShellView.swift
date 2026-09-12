@@ -5,6 +5,7 @@ import SonosKit
 struct PanelShellView: View {
     @Environment(AppState.self) private var state
     @Environment(PanelController.self) private var panel
+    @Environment(UpdateChecker.self) private var updates
     let closePanel: () -> Void
 
     @State private var bodyHeight: CGFloat = 0
@@ -29,7 +30,10 @@ struct PanelShellView: View {
         .frame(width: 420)
         .defaultFocus($focus, state.screen == .main ? .playPause : .back)
         .onExitCommand(perform: closePanel)
-        .onChange(of: panel.isPresented, initial: true) { _, presented in state.setPanelPresented(presented) }
+        .onChange(of: panel.isPresented, initial: true) { _, presented in
+            state.setPanelPresented(presented)
+            if presented { updates.checkIfDue() }
+        }
         // Belt-and-braces: if the panel's window is torn down without `panel.isPresented`
         // flipping first, this still stops the once-a-second tick task. Idempotent with the
         // onChange above.
