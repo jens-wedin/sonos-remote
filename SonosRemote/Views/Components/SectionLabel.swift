@@ -15,7 +15,7 @@ struct SectionLabel<Trailing: View>: View {
             Text(title)
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1.2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.supporting)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             trailing()

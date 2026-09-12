@@ -31,10 +31,15 @@ private struct Chip: View {
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.medium))
+            .font(.caption.weight(lit ? .semibold : .medium))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(lit ? AnyShapeStyle(Color.accentColor.opacity(0.22)) : AnyShapeStyle(.quaternary.opacity(0.5)), in: Capsule())
-            .foregroundStyle(lit ? Color.accentColor : Color.primary)
+            .foregroundStyle(lit ? Color.primary : Color.supporting)
+            .overlay {
+                if lit {
+                    Capsule().strokeBorder(Color.accentColor, lineWidth: 1)
+                }
+            }
     }
 }

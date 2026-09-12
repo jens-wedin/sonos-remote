@@ -52,7 +52,7 @@ struct SoundScreen: View {
                         CardRow(isFirst: true) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Loudness").font(.callout).accessibilityHidden(true)
-                                Text("Boosts bass and treble at low volume").font(.caption).foregroundStyle(.secondary)
+                                Text("Boosts bass and treble at low volume").font(.caption).foregroundStyle(Color.supporting)
                             }
                             Spacer()
                             Toggle("Loudness", isOn: Binding(
@@ -69,7 +69,7 @@ struct SoundScreen: View {
                 } else {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Reading EQ…").font(.caption).foregroundStyle(.secondary)
+                        Text("Reading EQ…").font(.caption).foregroundStyle(Color.supporting)
                     }
                     .padding(16)
                     .accessibilityElement(children: .combine)
@@ -81,7 +81,7 @@ struct SoundScreen: View {
             } else {
                 Text("No room selected")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
             }

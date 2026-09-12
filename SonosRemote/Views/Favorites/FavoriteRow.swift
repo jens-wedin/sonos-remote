@@ -13,14 +13,14 @@ struct FavoriteRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(favorite.name).font(.callout.weight(.medium)).lineLimit(1)
                     if !favorite.secondLine.isEmpty {
-                        Text(favorite.secondLine).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(favorite.secondLine).font(.caption).foregroundStyle(Color.supporting).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "play.fill")
                     .font(.system(size: 12, weight: .semibold))
                     .frame(width: 28, height: 28)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
             }
             .contentShape(Rectangle())
         }

@@ -11,7 +11,7 @@ struct HeaderView: View {
                 Text(Screen.main.title)
                     .font(.system(size: 12, weight: .bold))
                     .tracking(1.6)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .accessibilityAddTraits(.isHeader)
             } else {
                 Button { state.back() } label: {

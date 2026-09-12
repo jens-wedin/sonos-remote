@@ -21,14 +21,14 @@ struct FavoritesScreen: View {
             SectionLabel("ALL FAVORITES") {
                 Text("\(filtered.count)")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .accessibilityLabel("\(filtered.count) favorites")
                     .accessibilityAddTraits(.updatesFrequently)
             }
             if filtered.isEmpty {
                 Text(isSearching ? "No favorites match" : "No favorites in your Sonos system yet")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
             } else {

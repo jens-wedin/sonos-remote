@@ -48,7 +48,7 @@ struct VolumeSliderView: View {
             if style != .compact {
                 Text("\(Int(local))")
                     .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .frame(width: 28, alignment: .trailing)
                     .accessibilityHidden(true)
             }

@@ -35,11 +35,11 @@ struct ProgressBarView: View {
                     Text(PlaybackDisplay.remainingString(position: position, duration: duration)).accessibilityHidden(true)
                 }
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.supporting)
             } else if let source {
                 Text(source)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
             }

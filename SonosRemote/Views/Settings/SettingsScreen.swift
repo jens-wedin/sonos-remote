@@ -21,7 +21,7 @@ struct SettingsScreen: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(statusText).font(.callout.weight(.medium))
-                        Text(detailText).font(.caption).foregroundStyle(.secondary)
+                        Text(detailText).font(.caption).foregroundStyle(Color.supporting)
                     }
                     Spacer()
                     Button { state.retryDiscovery() } label: {
@@ -59,14 +59,14 @@ struct SettingsScreen: View {
                 CardRow(isFirst: true) {
                     Text("Version").font(.callout)
                     Spacer()
-                    Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                    Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
                 }
                 CardRow {
                     Link(destination: Self.releasesURL) {
                         HStack {
                             Text("Releases").font(.callout)
                             Spacer()
-                            Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
+                            Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(Color.supporting)
                         }
                         .contentShape(Rectangle())
                     }

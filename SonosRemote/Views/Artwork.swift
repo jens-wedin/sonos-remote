@@ -13,7 +13,7 @@ struct Artwork: View {
             } else {
                 ZStack {
                     Rectangle().fill(.quaternary)
-                    Image(systemName: placeholder).foregroundStyle(.secondary)
+                    Image(systemName: placeholder).foregroundStyle(Color.supporting)
                 }
             }
         }

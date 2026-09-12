@@ -14,7 +14,8 @@ struct RoomsListView: View {
                 }
                 .buttonStyle(.plain)
                 .focusable()
-                .foregroundStyle(state.selectedGroup == nil ? Color.accentColor.opacity(0.4) : Color.accentColor)
+                .foregroundStyle(Color.accentColor)
+                .opacity(state.selectedGroup == nil ? Palette.disabledOpacity : 1)
                 .disabled(state.selectedGroup == nil)
                 .accessibilityLabel("Group rooms")
             }

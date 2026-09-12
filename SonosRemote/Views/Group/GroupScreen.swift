@@ -16,7 +16,7 @@ struct GroupScreen: View {
                     Artwork(url: group.nowPlaying?.artworkURL, size: 40, placeholder: "hifispeaker")
                     VStack(alignment: .leading, spacing: 2) {
                         Text(group.name).font(.callout.weight(.semibold)).lineLimit(1)
-                        Text(PlaybackDisplay.nowPlayingLine(for: group)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(PlaybackDisplay.nowPlayingLine(for: group)).font(.caption).foregroundStyle(Color.supporting).lineLimit(1)
                     }
                     Spacer()
                 }
@@ -34,7 +34,7 @@ struct GroupScreen: View {
             } else {
                 Text("No room selected")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.supporting)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
             }
@@ -57,10 +57,10 @@ private struct MembershipRow: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(player.name).font(.callout)
             if isCoordinator {
-                Text("Source of this group").font(.caption).foregroundStyle(.secondary)
+                Text("Source of this group").font(.caption).foregroundStyle(Color.supporting)
             } else if playingElsewhere, let now = elsewhere?.nowPlaying {
                 Text("Playing \(now.title), will switch to this group")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.caption).foregroundStyle(Color.supporting).lineLimit(1)
             }
         }
         .accessibilityHidden(true)

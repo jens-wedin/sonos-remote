@@ -18,7 +18,7 @@ struct RoomRowView: View {
                         Artwork(url: group.nowPlaying?.artworkURL, size: 40, placeholder: "hifispeaker")
                         VStack(alignment: .leading, spacing: 2) {
                             Text(group.name).font(.callout.weight(.semibold)).lineLimit(1)
-                            Text(line).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(line).font(.caption).foregroundStyle(Color.supporting).lineLimit(1)
                         }
                         Spacer(minLength: 8)
                     }

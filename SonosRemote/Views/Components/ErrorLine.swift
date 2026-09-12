@@ -7,7 +7,7 @@ struct ErrorLine: View {
     var body: some View {
         Text(text)
             .font(.caption)
-            .foregroundStyle(.red)
+            .foregroundStyle(Color.errorText)
             .padding(.horizontal, 16)
             .padding(.top, 4)
             .accessibilityAddTraits(.updatesFrequently)

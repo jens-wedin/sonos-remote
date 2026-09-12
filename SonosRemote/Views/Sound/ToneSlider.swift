@@ -20,7 +20,7 @@ struct ToneSlider: View {
         .onTapGesture(count: 2) { local = 0; onChange(0) }
         Text(ToneValue.string(Int(local)))
             .font(.callout.monospacedDigit())
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.supporting)
             .frame(width: 30, alignment: .trailing)
             .accessibilityHidden(true)
             .onAppear { local = Double(value) }

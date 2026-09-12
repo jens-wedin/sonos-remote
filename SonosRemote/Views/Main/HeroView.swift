@@ -20,18 +20,18 @@ struct HeroView: View {
                 }
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(0.8)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.supporting)
                 .padding(.bottom, 2)
                 if let now = nowPlaying {
                     Text(now.title).font(.system(size: 16, weight: .semibold)).lineLimit(1)
                     if let artist = now.artist {
-                        Text(artist).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                        Text(artist).font(.callout).foregroundStyle(Color.supporting).lineLimit(1)
                     }
                     if let album = now.album ?? now.containerName {
-                        Text(album).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                        Text(album).font(.caption).foregroundStyle(Color.faint).lineLimit(1)
                     }
                 } else {
-                    Text("Not playing").font(.system(size: 16, weight: .semibold)).foregroundStyle(.secondary)
+                    Text("Not playing").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.supporting)
                 }
                 Spacer(minLength: 0)
             }

@@ -73,7 +73,8 @@ private struct ToggleGlyph: View {
         Button { action(!isOn) } label: {
             Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(!enabled ? Color.secondary.opacity(0.4) : isOn ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isOn ? Color.accentColor : Color.supporting)
+                .opacity(enabled ? 1 : Palette.disabledOpacity)
                 .frame(width: 28, height: 28)
                 .background(isOn ? AnyShapeStyle(Color.accentColor.opacity(0.18)) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .contentShape(Rectangle())

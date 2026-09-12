@@ -12,7 +12,7 @@ struct StatusBannerView: View {
             Banner(color: .gray) {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Looking for Sonos…").font(.callout).foregroundStyle(.secondary)
+                    Text("Looking for Sonos…").font(.callout).foregroundStyle(Color.supporting)
                 }
             }
         case .noPlayersFound:
@@ -23,7 +23,7 @@ struct StatusBannerView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("No Sonos found on this network").font(.callout.weight(.semibold))
                     Text("Your Mac must be on the same Wi‑Fi or wired network as the speakers.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(Color.supporting)
                     Button("Retry") { state.retryDiscovery() }.controlSize(.small)
                 }
             }

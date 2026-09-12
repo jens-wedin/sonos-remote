@@ -3,10 +3,12 @@ import SwiftUI
 /// Rounded surface used by every sub-screen. Put `CardRow`s inside; they draw their own separators.
 struct Card<Content: View>: View {
     @ViewBuilder var content: () -> Content
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         VStack(spacing: 0) { content() }
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Palette.border(contrast).opacity(0.6)))
             .padding(.horizontal, 16)
     }
 }
