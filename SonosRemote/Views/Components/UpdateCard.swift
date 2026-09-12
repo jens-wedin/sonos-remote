@@ -7,8 +7,8 @@ struct UpdateCard: View {
     let onDismiss: () -> Void
 
     @Environment(AppState.self) private var state
+    @Environment(UpdateChecker.self) private var updates
     @Environment(\.colorSchemeContrast) private var contrast
-    @State private var announcedVersion: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -39,7 +39,7 @@ struct UpdateCard: View {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -58,8 +58,7 @@ struct UpdateCard: View {
     }
 
     private func announceOnce() {
-        guard announcedVersion != release.version else { return }
-        announcedVersion = release.version
+        guard updates.shouldAnnounce(release.version) else { return }
         state.announce("Update available, version \(release.version)")
     }
 }
@@ -71,23 +70,34 @@ struct CopyCommandButton: View {
 
     @Environment(AppState.self) private var state
     @State private var copied = false
+    @State private var clicks = 0
 
     var body: some View {
         Button {
             onCopy()
-            copied = true
+            clicks += 1
             state.announce("Copied")
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(2))
-                copied = false
-            }
         } label: {
-            Label(copied ? "Copied" : "Copy Homebrew command", systemImage: copied ? "checkmark" : "doc.on.doc")
-                .font(.caption.weight(.medium))
+            // The hidden long label reserves the width so the row does not shift while "Copied" shows.
+            ZStack(alignment: .leading) {
+                Label("Copy Homebrew command", systemImage: "doc.on.doc").hidden()
+                Label(copied ? "Copied" : "Copy Homebrew command", systemImage: copied ? "checkmark" : "doc.on.doc")
+            }
+            .font(.caption.weight(.medium))
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color.accentColor)
         .focusable()
         .accessibilityLabel("Copy Homebrew upgrade command")
+        .task(id: clicks) {
+            guard clicks > 0 else { return }
+            copied = true
+            do {
+                try await Task.sleep(for: .seconds(2))
+                copied = false
+            } catch {
+                // A newer click restarted the window; leave `copied` to that task.
+            }
+        }
     }
 }

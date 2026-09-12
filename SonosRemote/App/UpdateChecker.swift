@@ -45,6 +45,8 @@ final class UpdateChecker {
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var inFlight = false
     @ObservationIgnored private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "updates")
+    /// Versions VoiceOver has already been told about this session; the card announces each once.
+    @ObservationIgnored private var announcedVersions: Set<String> = []
 
     init(
         source: any ReleaseSource,
@@ -116,6 +118,11 @@ final class UpdateChecker {
         guard let available else { return }
         defaults.set(available.version, forKey: Self.dismissedKey)
         self.available = nil
+    }
+
+    /// True the first time it is asked about a version this session, false afterwards.
+    func shouldAnnounce(_ version: String) -> Bool {
+        announcedVersions.insert(version).inserted
     }
 
     func copyCommand() {

@@ -201,6 +201,14 @@ final class TestClock: @unchecked Sendable {
         #expect(pasteboard.string(forType: .string) == "brew upgrade --cask remote-for-sonos")
     }
 
+    @Test func shouldAnnounceIsTrueOncePerVersion() {
+        let source = FakeReleaseSource(.success(release("0.2.2")))
+        let (checker, _, _) = makeChecker(source: source)
+        #expect(checker.shouldAnnounce("0.2.2"))
+        #expect(!checker.shouldAnnounce("0.2.2"))
+        #expect(checker.shouldAnnounce("0.2.3"))
+    }
+
     @Test func startChecksAfterTheInitialDelayAndASecondStartIsIgnored() async throws {
         let source = FakeReleaseSource(.success(release("0.2.2")))
         let (checker, _, _) = makeChecker(source: source, initialDelay: .milliseconds(10))
