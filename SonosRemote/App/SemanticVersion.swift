@@ -1,5 +1,3 @@
-import Foundation
-
 /// Strict `major.minor.patch` handling for release tags (`v0.2.1`) and `CFBundleShortVersionString`.
 /// Pre-release suffixes and anything else that is not digits and dots do not parse, so they can never be "newer".
 enum SemanticVersion {

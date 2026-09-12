@@ -61,10 +61,10 @@ struct SettingsScreen: View {
                     }
                     Spacer()
                     Toggle("Check for updates", isOn: $updates.isEnabled)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .labelsHidden()
-                    .accessibilityHint("Asks github.com once a day")
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                        .accessibilityHint("Asks github.com once a day")
                 }
             }
 

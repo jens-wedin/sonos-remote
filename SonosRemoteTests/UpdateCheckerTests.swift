@@ -132,6 +132,19 @@ final class TestClock: @unchecked Sendable {
         try await waitUntil { checker.available != nil }
         let calls = await source.calls
         #expect(calls == 1)
+        checker.isEnabled = false
+    }
+
+    @Test func reEnablingDoesNotAddAnEarlyTimerTick() async throws {
+        let source = FakeReleaseSource(.success(release("0.2.2")))
+        let (checker, _, _) = makeChecker(source: source, initialDelay: .milliseconds(10))
+        checker.isEnabled = false
+        checker.isEnabled = true
+        try await waitUntil { checker.available != nil }
+        try await Task.sleep(for: .milliseconds(150))
+        let calls = await source.calls
+        #expect(calls == 1)
+        checker.isEnabled = false
     }
 
     @Test func checkIfDueSkipsWithinADayAndRunsAfter() async throws {

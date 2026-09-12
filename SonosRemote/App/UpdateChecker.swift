@@ -22,7 +22,8 @@ final class UpdateChecker {
             guard isEnabled != oldValue else { return }
             defaults.set(isEnabled, forKey: Self.enabledKey)
             if isEnabled {
-                start()
+                // The immediate check below covers "now"; the timer's first tick waits a full interval.
+                start(firstTickAfter: interval)
                 Task { await check() }
             } else {
                 timer?.cancel()
@@ -75,10 +76,10 @@ final class UpdateChecker {
         )
     }
 
-    /// First check `initialDelay` after launch, then every `interval` while enabled. Safe to call more than once.
-    func start() {
+    /// First check `initialDelay` after launch (or `firstTickAfter` when given), then every `interval` while enabled. Safe to call more than once.
+    func start(firstTickAfter firstDelay: Duration? = nil) {
         guard isEnabled, timer == nil else { return }
-        let delay = initialDelay
+        let delay = firstDelay ?? initialDelay
         let every = interval
         timer = Task { [weak self] in
             try? await Task.sleep(for: delay)

@@ -4,6 +4,7 @@ import SonosKit
 struct MainScreen: View {
     @Environment(AppState.self) private var state
     @Environment(UpdateChecker.self) private var updates
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let focus: FocusState<PanelFocus?>.Binding
 
     var body: some View {
@@ -11,6 +12,7 @@ struct MainScreen: View {
             StatusBannerView()
             if let release = updates.available {
                 UpdateCard(release: release, onCopy: { updates.copyCommand() }, onDismiss: { updates.dismiss() })
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
             HeroView(group: state.selectedGroup)
             if let group = state.selectedGroup {
@@ -25,5 +27,6 @@ struct MainScreen: View {
             }
         }
         .padding(.bottom, 12)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: updates.available)
     }
 }
