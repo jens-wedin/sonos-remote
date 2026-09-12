@@ -74,7 +74,7 @@ def deps_pinned():
     return 1 if "exactVersion:" in y and "from:" not in y.split("packages:")[1].split("targets:")[0] else 0
 
 def interpolated_text_sites():
-    """Text("…\(…)…") literals in views where the interpolation is metadata (title, name)."""
+    r"""Text("…\(…)…") literals in views where the interpolation is metadata (title, name)."""
     return count(r'Text\("[^"\n]*\\\([^)]*\b(title|name|secondLine|line)\b[^)]*\)[^"\n]*"\)', VIEWS)
 
 STATIC = [
