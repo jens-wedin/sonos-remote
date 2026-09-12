@@ -211,12 +211,21 @@ import SonosKit
         let appState = makeAppState()
         let originalHousehold = appState.household
         appState.apply(snapshot([group("a", .idle), group("b", .playing)]))
-        #expect(appState.snapshot.status == .ready)
+        #expect(appState.status == .ready)
 
         appState.retryDiscovery()
 
         #expect(appState.household !== originalHousehold)
-        #expect(appState.snapshot.status == .discovering)
-        #expect(appState.snapshot.groups.isEmpty)
+        #expect(appState.status == .discovering)
+        #expect(appState.groups.isEmpty)
+        #expect(appState.orderedGroups.isEmpty)
+    }
+
+    @Test func orderedGroupsIsRecomputedOnlyWhenGroupsChange() {
+        let appState = makeAppState()
+        appState.apply(snapshot([group("b", .idle), group("a", .playing)]))
+        #expect(appState.orderedGroups.map(\.id) == ["a", "b"])
+        appState.apply(snapshot([group("b", .playing), group("a", .idle)]))
+        #expect(appState.orderedGroups.map(\.id) == ["b", "a"])
     }
 }

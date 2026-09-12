@@ -5,9 +5,9 @@ struct SoundScreen: View {
     @Environment(AppState.self) private var state
 
     private var playerID: String? { state.soundPlayerID ?? state.selectedGroup?.coordinatorID }
-    private var player: Player? { playerID.flatMap { state.snapshot.player($0) } }
+    private var player: Player? { playerID.flatMap { state.player($0) } }
     private var playerOptions: [(id: String, name: String)] {
-        state.snapshot.players
+        state.players
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             .map { ($0.id, $0.name) }
     }
@@ -74,7 +74,7 @@ struct SoundScreen: View {
                     .padding(16)
                     .accessibilityElement(children: .combine)
                 }
-                if let error = state.rowErrors[state.snapshot.group(containing: playerID)?.id ?? playerID] {
+                if let error = state.rowErrors[state.group(containing: playerID)?.id ?? playerID] {
                     ErrorLine(text: error)
                 }
             } else {

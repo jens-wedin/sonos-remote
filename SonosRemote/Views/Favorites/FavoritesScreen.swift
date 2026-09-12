@@ -4,7 +4,7 @@ import SonosKit
 struct FavoritesScreen: View {
     @Environment(AppState.self) private var state
 
-    private var filtered: [Favorite] { FavoritesFilter.apply(state.snapshot.favorites, query: state.favoritesSearch) }
+    private var filtered: [Favorite] { FavoritesFilter.apply(state.favorites, query: state.favoritesSearch) }
     private var targetOptions: [(id: String, name: String)] { state.orderedGroups.map { ($0.id, $0.name) } }
     private var targetGroupID: String? { state.favoritesTargetGroupID ?? state.selectedGroupID }
     private var isSearching: Bool { !state.favoritesSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }

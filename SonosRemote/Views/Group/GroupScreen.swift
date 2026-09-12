@@ -5,7 +5,7 @@ struct GroupScreen: View {
     @Environment(AppState.self) private var state
 
     private var players: [Player] {
-        state.snapshot.players.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        state.players.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
@@ -52,7 +52,7 @@ private struct MembershipRow: View {
     var body: some View {
         let isCoordinator = player.id == group.coordinatorID
         let isMember = group.playerIDs.contains(player.id)
-        let elsewhere = state.snapshot.group(containing: player.id)
+        let elsewhere = state.group(containing: player.id)
         let playingElsewhere = !isMember && elsewhere?.playbackState == .playing
         VStack(alignment: .leading, spacing: 2) {
             Text(player.name).font(.callout)

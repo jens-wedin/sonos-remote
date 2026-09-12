@@ -9,23 +9,29 @@ extension PlaybackState {
 
 @MainActor @Observable
 final class AppState {
-    private(set) var snapshot = HouseholdSnapshot()
+    // The snapshot is kept as five narrow observed properties rather than one struct:
+    // `@Observable` tracks access per stored property, so a view that reads `favorites`
+    // must not re-render when a volume event changes `groups`. Each is assigned only when
+    // it actually differs, so an unchanged part never fires a mutation.
+    private(set) var status: HouseholdStatus = .discovering
+    private(set) var groups: [Group] = []
+    private(set) var players: [Player] = []
+    private(set) var favorites: [Favorite] = []
+    private(set) var softwareVersion: String?
 
     /// Groups for display: the ones playing (or about to) first, then the rest, each tier by name.
-    var orderedGroups: [Group] {
-        snapshot.groups.sorted { lhs, rhs in
-            let lhsActive = lhs.playbackState.isActive
-            let rhsActive = rhs.playbackState.isActive
-            if lhsActive != rhsActive { return lhsActive }
-            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-        }
-    }
+    /// Stored, recomputed only when `groups` changes, so a render never sorts.
+    private(set) var orderedGroups: [Group] = []
+
+    func group(_ id: String) -> Group? { groups.first { $0.id == id } }
+    func player(_ id: String) -> Player? { players.first { $0.id == id } }
+    func group(containing playerID: String) -> Group? { groups.first { $0.playerIDs.contains(playerID) } }
 
     /// The one room every screen shows. Never nil while groups exist.
     var selectedGroupID: String? {
         didSet { defaults.set(selectedGroupID, forKey: Self.selectedGroupKey) }
     }
-    var selectedGroup: Group? { selectedGroupID.flatMap { snapshot.group($0) } }
+    var selectedGroup: Group? { selectedGroupID.flatMap { group($0) } }
 
     // Navigation and per-screen state.
     private(set) var screen: Screen = .main
@@ -85,40 +91,63 @@ final class AppState {
         Task { await old.stop() }
         let transport = URLSessionTransport(trustStore: TrustStore(pinStore: UserDefaultsPinStore()))
         household = Household(discovery: BonjourDiscovery(), transport: transport, trustStore: transport.trustStore)
-        snapshot = HouseholdSnapshot()
+        status = .discovering
+        groups = []
+        orderedGroups = []
+        players = []
+        favorites = []
+        softwareVersion = nil
         rowErrors = [:]
         updateTicking()
         start()
     }
 
     func apply(_ snapshot: HouseholdSnapshot) {
-        self.snapshot = snapshot
-        guard !snapshot.groups.isEmpty else { updateTicking(); return }
-        let stillExists = selectedGroupID.map { id in snapshot.groups.contains { $0.id == id } } ?? false
+        // Assign only what changed: an unchanged assignment still fires Observation's
+        // mutation and re-renders every view that read the property.
+        if status != snapshot.status { status = snapshot.status }
+        if groups != snapshot.groups {
+            groups = snapshot.groups
+            orderedGroups = Self.ordered(snapshot.groups)
+        }
+        if players != snapshot.players { players = snapshot.players }
+        if favorites != snapshot.favorites { favorites = snapshot.favorites }
+        if softwareVersion != snapshot.softwareVersion { softwareVersion = snapshot.softwareVersion }
+        guard !groups.isEmpty else { updateTicking(); return }
+        let stillExists = selectedGroupID.map { id in groups.contains { $0.id == id } } ?? false
         if !stillExists || !resolvedInitialSelection {
-            selectedGroupID = SelectionPolicy.resolve(remembered: selectedGroupID, groups: snapshot.groups)
+            selectedGroupID = SelectionPolicy.resolve(remembered: selectedGroupID, groups: groups)
         }
         resolvedInitialSelection = true
         // The Favorites picker targets one group; if it disappears (regrouped from the Sonos
         // app while the screen is open), fall back to the room every screen shows.
-        if let target = favoritesTargetGroupID, snapshot.group(target) == nil {
+        if let target = favoritesTargetGroupID, group(target) == nil {
             favoritesTargetGroupID = selectedGroupID
         }
         // The Sound screen's picker is over ALL players, not just the selected group's (spec
         // §5), so a player outside the selected group is a legitimate choice; only re-anchor
         // when the chosen player no longer exists at all.
-        if soundPlayerID.flatMap(snapshot.player) == nil {
+        if soundPlayerID.flatMap(player) == nil {
             soundPlayerID = selectedGroup?.coordinatorID
         }
         updateTicking()
     }
 
+    private static func ordered(_ groups: [Group]) -> [Group] {
+        groups.sorted { lhs, rhs in
+            let lhsActive = lhs.playbackState.isActive
+            let rhsActive = rhs.playbackState.isActive
+            if lhsActive != rhsActive { return lhsActive }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
     // MARK: Selection and navigation
 
     func select(_ groupID: String) {
-        guard snapshot.group(groupID) != nil else { return }
+        guard let target = group(groupID) else { return }
         selectedGroupID = groupID
-        soundPlayerID = snapshot.group(groupID)?.coordinatorID
+        soundPlayerID = target.coordinatorID
         updateTicking()
     }
 
@@ -156,8 +185,8 @@ final class AppState {
     // MARK: Commands (fire and forget with inline error reporting)
 
     func togglePlayPause(group id: String) {
-        guard let group = snapshot.group(id) else { return }
-        if group.playbackState == .playing { pause(group: id) } else { play(group: id) }
+        guard let target = group(id) else { return }
+        if target.playbackState == .playing { pause(group: id) } else { play(group: id) }
     }
 
     func play(group id: String) { run(id) { try await self.household.play(group: id) } }
@@ -171,21 +200,21 @@ final class AppState {
     func setGroupMuted(_ muted: Bool, group id: String) { run(id) { try await self.household.setGroupMuted(muted, group: id) } }
 
     func setPlayerVolume(_ level: Int, player: String) {
-        run(snapshot.group(containing: player)?.id ?? player) { try await self.household.setPlayerVolume(level, player: player) }
+        run(group(containing: player)?.id ?? player) { try await self.household.setPlayerVolume(level, player: player) }
     }
 
     func setPlayerMuted(_ muted: Bool, player: String) {
-        run(snapshot.group(containing: player)?.id ?? player) { try await self.household.setPlayerMuted(muted, player: player) }
+        run(group(containing: player)?.id ?? player) { try await self.household.setPlayerMuted(muted, player: player) }
     }
 
     func playFavorite(_ favoriteID: String, group id: String) { run(id) { try await self.household.playFavorite(favoriteID, group: id) } }
 
     func setMembership(of player: String, inGroup id: String, member: Bool) {
-        guard let group = snapshot.group(id) else { return }
-        var members = group.playerIDs
+        guard let target = group(id) else { return }
+        var members = target.playerIDs
         if member, !members.contains(player) { members.append(player) }
         if !member { members.removeAll { $0 == player } }
-        guard members != group.playerIDs, !members.isEmpty else { return }
+        guard members != target.playerIDs, !members.isEmpty else { return }
         let newMembers = members
         run(id) { try await self.household.setGroupMembers(newMembers, group: id) }
     }
@@ -193,13 +222,13 @@ final class AppState {
     func loadEQ(player: String) {
         Task {
             do { eqByPlayer[player] = try await household.eq(player: player) }
-            catch { report(snapshot.group(containing: player)?.id ?? player, error) }
+            catch { report(group(containing: player)?.id ?? player, error) }
         }
     }
 
     func updateEQ(_ eq: EQSettings, player: String) {
         eqByPlayer[player] = eq
-        run(snapshot.group(containing: player)?.id ?? player) { try await self.household.setEQ(eq, player: player) }
+        run(group(containing: player)?.id ?? player) { try await self.household.setEQ(eq, player: player) }
     }
 
     func applyPreset(_ preset: TonePreset, player: String) {

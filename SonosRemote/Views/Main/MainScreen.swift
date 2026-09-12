@@ -16,7 +16,7 @@ struct MainScreen: View {
             if let group = state.selectedGroup {
                 VolumeRowView(group: group)
             }
-            if !state.snapshot.groups.isEmpty {
+            if !state.groups.isEmpty {
                 RoomsListView()
             }
         }

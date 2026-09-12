@@ -5,7 +5,7 @@ struct StatusBannerView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        switch state.snapshot.status {
+        switch state.status {
         case .ready:
             EmptyView()
         case .discovering:

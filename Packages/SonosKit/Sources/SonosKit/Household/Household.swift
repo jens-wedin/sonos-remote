@@ -64,7 +64,9 @@ public actor Household {
     public var current: HouseholdSnapshot { snapshot }
 
     public func snapshots() -> AsyncStream<HouseholdSnapshot> {
-        let (stream, continuation) = AsyncStream<HouseholdSnapshot>.makeStream()
+        // A snapshot is a complete state, not a delta: an intermediate value the consumer
+        // has not read yet carries nothing the newest one lacks, so keep only the newest.
+        let (stream, continuation) = AsyncStream<HouseholdSnapshot>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let id = UUID()
         observers[id] = continuation
         continuation.yield(snapshot)
@@ -431,7 +433,12 @@ public actor Household {
 
     private func apply(_ event: HouseholdEvent) {
         let previousStatus = snapshot.status
-        snapshot = SnapshotReducer.reduce(snapshot, event)
+        let next = SnapshotReducer.reduce(snapshot, event)
+        // Speakers re-report unchanged state (every socket reconnect resends the topology,
+        // a volume drag lands on the same value twice); an event that changes nothing must
+        // not wake every observer.
+        guard next != snapshot else { return }
+        snapshot = next
         let newStatus = snapshot.status
         if newStatus != previousStatus {
             logger.info("status changed from \(String(describing: previousStatus), privacy: .public) to \(String(describing: newStatus), privacy: .public)")

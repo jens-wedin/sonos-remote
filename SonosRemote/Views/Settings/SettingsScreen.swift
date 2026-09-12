@@ -90,12 +90,12 @@ struct SettingsScreen: View {
     }
 
     private var isConnected: Bool {
-        if case .ready = state.snapshot.status { return true }
+        if case .ready = state.status { return true }
         return false
     }
 
     private var statusText: String {
-        switch state.snapshot.status {
+        switch state.status {
         case .ready: "Connected"
         case .discovering: "Looking for Sonos…"
         case .noPlayersFound: "No Sonos found"
@@ -106,8 +106,8 @@ struct SettingsScreen: View {
 
     /// "3 speakers · S2 · 85.1-63270"
     private var detailText: String {
-        let count = state.snapshot.players.count
+        let count = state.players.count
         let speakers = count == 1 ? "1 speaker" : "\(count) speakers"
-        return [speakers, "S2", state.snapshot.softwareVersion].compactMap { $0 }.joined(separator: " · ")
+        return [speakers, "S2", state.softwareVersion].compactMap { $0 }.joined(separator: " · ")
     }
 }

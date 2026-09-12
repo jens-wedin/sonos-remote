@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import SonosKit
 
@@ -369,5 +370,21 @@ import Testing
         #expect(modes["repeat"] as? Bool == false)
 
         await h.household.stop()
+    }
+
+    @Test func identicalEventsDoNotYieldNewSnapshots() async throws {
+        let h = Harness()
+        let first = try await h.startAndDiscover(DiscoveredPlayer(id: "RINCON_1", address: "192.168.1.10", householdID: "hh"))
+        let groupID = try #require(first.groups.first?.id)
+        let socket = try #require(h.transport.sockets.first)
+        let yields = Mutex(0)
+        let stream = await h.household.snapshots()
+        let counter = Task { for await _ in stream { yields.withLock { $0 += 1 } } }
+        try await Task.sleep(for: .milliseconds(50))
+        let frame = #"[{"namespace":"groupVolume:1","type":"groupVolume","groupId":"\#(groupID)"},{"volume":20,"muted":false,"fixed":false}]"#
+        for _ in 0..<10 { socket.push(frame) }
+        try await Task.sleep(for: .milliseconds(200))
+        counter.cancel()
+        #expect(yields.withLock { $0 } <= 2, "initial snapshot plus at most one change")
     }
 }
