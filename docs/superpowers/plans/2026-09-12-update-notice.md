@@ -800,7 +800,7 @@ git commit -m "feat(updates): daily update checker with dismissal and opt-out"
 
 **Interfaces:**
 - Consumes: `UpdateChecker` (`available`, `copyCommand()`, `dismiss()`, `start()`, `live()`), `ReleaseInfo` (`version`, `notesURL`), `AppState.announce(_:)` (exists), `Palette.border(_:)`, `Color.supporting` (exist in `Palette.swift`).
-- Produces: `struct UpdateCard: View { init(release: ReleaseInfo, onCopy: @escaping () -> Void, onDismiss: @escaping () -> Void) }`; `SonosRemoteApp` injects `UpdateChecker` with `.environment(updates)` so every screen can read `@Environment(UpdateChecker.self)`.
+- Produces: `struct UpdateCard: View { init(release: ReleaseInfo, onCopy: @escaping () -> Void, onDismiss: @escaping () -> Void) }`; `struct CopyCommandButton: View { init(onCopy: @escaping () -> Void) }` (same file, reused by Task 5); `SonosRemoteApp` injects `UpdateChecker` with `.environment(updates)` so every screen can read `@Environment(UpdateChecker.self)`.
 
 - [ ] **Step 1: Create the card view**
 
@@ -817,7 +817,6 @@ struct UpdateCard: View {
 
     @Environment(AppState.self) private var state
     @Environment(\.colorSchemeContrast) private var contrast
-    @State private var copied = false
     @State private var announcedVersion: String?
 
     var body: some View {
@@ -832,14 +831,7 @@ struct UpdateCard: View {
                 Text(verbatim: "Update available — v\(release.version)")
                     .font(.callout.weight(.semibold))
                 HStack(spacing: 14) {
-                    Button(action: copy) {
-                        Label(copied ? "Copied" : "Copy Homebrew command", systemImage: copied ? "checkmark" : "doc.on.doc")
-                            .font(.caption.weight(.medium))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .focusable()
-                    .accessibilityLabel("Copy Homebrew upgrade command")
+                    CopyCommandButton(onCopy: onCopy)
 
                     Link(destination: release.notesURL) {
                         Label("What's new", systemImage: "arrow.up.right")
@@ -874,20 +866,38 @@ struct UpdateCard: View {
         .onChange(of: release.version) { announceOnce() }
     }
 
-    private func copy() {
-        onCopy()
-        copied = true
-        state.announce("Copied")
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            copied = false
-        }
-    }
-
     private func announceOnce() {
         guard announcedVersion != release.version else { return }
         announcedVersion = release.version
         state.announce("Update available, version \(release.version)")
+    }
+}
+
+/// "Copy Homebrew command" that reads "Copied" for two seconds after a click and announces it.
+/// Shared by the update card and the Settings version row.
+struct CopyCommandButton: View {
+    let onCopy: () -> Void
+
+    @Environment(AppState.self) private var state
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            onCopy()
+            copied = true
+            state.announce("Copied")
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                copied = false
+            }
+        } label: {
+            Label(copied ? "Copied" : "Copy Homebrew command", systemImage: copied ? "checkmark" : "doc.on.doc")
+                .font(.caption.weight(.medium))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.accentColor)
+        .focusable()
+        .accessibilityLabel("Copy Homebrew upgrade command")
     }
 }
 ```
@@ -1006,7 +1016,7 @@ git commit -m "feat(updates): update card on the main screen, checker wired at l
 - Modify: `SonosRemote/Views/Shell/PanelShellView.swift` (add one environment property and one line in the `onChange` at line 32)
 
 **Interfaces:**
-- Consumes: `UpdateChecker` (`isEnabled` get/set, `latestKnown`, `copyCommand()`, `checkIfDue()`), injected in Task 4.
+- Consumes: `UpdateChecker` (`isEnabled` get/set, `latestKnown`, `copyCommand()`, `checkIfDue()`) injected in Task 4; `CopyCommandButton(onCopy:)` from Task 4.
 - Produces: nothing new.
 
 - [ ] **Step 1: Add the environment property and the "Check for updates" row**
@@ -1015,7 +1025,6 @@ In `SonosRemote/Views/Settings/SettingsScreen.swift`, below `@Environment(AppSta
 
 ```swift
     @Environment(UpdateChecker.self) private var updates
-    @State private var copiedInSettings = false
 ```
 
 At the top of `body`, before the outer `VStack(alignment: .leading, spacing: 0) {`, add the local binding the repo already uses in `FavoritesScreen` and `SoundScreen`:
@@ -1058,20 +1067,7 @@ Replace the SYSTEM card's first `CardRow` (the one showing `AppVersion.display`)
                     VStack(alignment: .trailing, spacing: 4) {
                         Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
                         if updates.latestKnown != nil {
-                            Button(copiedInSettings ? "Copied" : "Copy Homebrew command") {
-                                updates.copyCommand()
-                                copiedInSettings = true
-                                state.announce("Copied")
-                                Task { @MainActor in
-                                    try? await Task.sleep(for: .seconds(2))
-                                    copiedInSettings = false
-                                }
-                            }
-                            .font(.caption.weight(.medium))
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Color.accentColor)
-                            .focusable()
-                            .accessibilityLabel("Copy Homebrew upgrade command")
+                            CopyCommandButton(onCopy: { updates.copyCommand() })
                         }
                     }
                 }
@@ -1111,7 +1107,7 @@ Expected: `** TEST SUCCEEDED **`, no `error:` lines. (No files were added, so `x
 - [ ] **Step 5: Self-check**
 
 ```bash
-grep -n "Check for updates\|Asks github.com once a day\|Update available:\|Copy Homebrew upgrade command" SonosRemote/Views/Settings/SettingsScreen.swift
+grep -n "Check for updates\|Asks github.com once a day\|Update available:\|CopyCommandButton" SonosRemote/Views/Settings/SettingsScreen.swift
 grep -n "checkIfDue" SonosRemote/Views/Shell/PanelShellView.swift
 grep -c "\.secondary" SonosRemote/Views/Settings/SettingsScreen.swift   # expect 0
 ```
