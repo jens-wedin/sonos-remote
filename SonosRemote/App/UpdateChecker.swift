@@ -10,7 +10,6 @@ final class UpdateChecker {
     static let enabledKey = "updateCheckEnabled"
     static let dismissedKey = "dismissedUpdateVersion"
     static let lastCheckKey = "lastUpdateCheck"
-    static let checkInterval: TimeInterval = 86_400
 
     /// Newer than the running version and not dismissed; drives the main-screen card.
     private(set) var available: ReleaseInfo?
@@ -81,8 +80,8 @@ final class UpdateChecker {
         let every = interval
         timer = Task { [weak self] in
             try? await Task.sleep(for: delay)
-            while !Task.isCancelled, let self {
-                await self.check()
+            while !Task.isCancelled {
+                if let self { await self.check() } else { return }
                 try? await Task.sleep(for: every)
             }
         }
@@ -91,8 +90,9 @@ final class UpdateChecker {
     /// The panel calls this on open: runs a check only when the last recorded one is older than a day.
     /// No recorded check means the launch timer has not run yet; it will, so nothing happens here.
     func checkIfDue() {
+        let due = TimeInterval(interval.components.seconds)
         guard isEnabled, let last = defaults.object(forKey: Self.lastCheckKey) as? Date,
-              now().timeIntervalSince(last) >= Self.checkInterval else { return }
+              now().timeIntervalSince(last) >= due else { return }
         Task { await check() }
     }
 
@@ -103,7 +103,9 @@ final class UpdateChecker {
         inFlight = true
         defer { inFlight = false }
         do {
-            apply(try await source.latest())
+            let release = try await source.latest()
+            guard isEnabled else { return }
+            apply(release)
         } catch {
             logger.info("update check failed: \(String(describing: error), privacy: .public)")
         }

@@ -7,13 +7,16 @@ import Testing
 actor FakeReleaseSource: ReleaseSource {
     private(set) var calls = 0
     private var result: Result<ReleaseInfo, Error>
+    private var delay: Duration = .zero
 
     init(_ result: Result<ReleaseInfo, Error>) { self.result = result }
 
     func set(_ result: Result<ReleaseInfo, Error>) { self.result = result }
+    func set(delay: Duration) { self.delay = delay }
 
     func latest() async throws -> ReleaseInfo {
         calls += 1
+        if delay > .zero { try? await Task.sleep(for: delay) }
         return try result.get()
     }
 }
@@ -37,7 +40,8 @@ final class TestClock: @unchecked Sendable {
     func makeChecker(
         source: FakeReleaseSource,
         current: String = "0.2.1",
-        clock: TestClock = TestClock()
+        clock: TestClock = TestClock(),
+        initialDelay: Duration = .seconds(3600)
     ) -> (UpdateChecker, UserDefaults, NSPasteboard) {
         let name = "UpdateCheckerTests-\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
@@ -48,7 +52,7 @@ final class TestClock: @unchecked Sendable {
             defaults: defaults,
             pasteboard: pasteboard,
             now: { clock.now },
-            initialDelay: .seconds(3600),
+            initialDelay: initialDelay,
             interval: .seconds(86_400)
         )
         return (checker, defaults, pasteboard)
@@ -195,6 +199,41 @@ final class TestClock: @unchecked Sendable {
         #expect(checker.brewCommand == "brew upgrade --cask remote-for-sonos")
         checker.copyCommand()
         #expect(pasteboard.string(forType: .string) == "brew upgrade --cask remote-for-sonos")
+    }
+
+    @Test func startChecksAfterTheInitialDelayAndASecondStartIsIgnored() async throws {
+        let source = FakeReleaseSource(.success(release("0.2.2")))
+        let (checker, _, _) = makeChecker(source: source, initialDelay: .milliseconds(10))
+        checker.start()
+        checker.start()
+        try await waitUntil { checker.available != nil }
+        try await Task.sleep(for: .milliseconds(100))
+        let calls = await source.calls
+        #expect(calls == 1)
+        checker.isEnabled = false
+    }
+
+    @Test func disablingCancelsAStartedTimerBeforeItsFirstTick() async throws {
+        let source = FakeReleaseSource(.success(release("0.2.2")))
+        let (checker, _, _) = makeChecker(source: source, initialDelay: .milliseconds(50))
+        checker.start()
+        checker.isEnabled = false
+        try await Task.sleep(for: .milliseconds(200))
+        let calls = await source.calls
+        #expect(calls == 0)
+        #expect(checker.available == nil)
+    }
+
+    @Test func disablingDuringAnInFlightCheckDiscardsItsResult() async throws {
+        let source = FakeReleaseSource(.success(release("0.2.2")))
+        await source.set(delay: .milliseconds(200))
+        let (checker, _, _) = makeChecker(source: source)
+        Task { await checker.check() }
+        try await Task.sleep(for: .milliseconds(50))
+        checker.isEnabled = false
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(checker.available == nil)
+        #expect(checker.latestKnown == nil)
     }
 
     /// Polls `condition` every 20 ms for up to two seconds, then records a failure.
