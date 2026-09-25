@@ -7,7 +7,7 @@ import Sparkle
 @MainActor
 final class SparkleUpdater: NSObject, Updating, SPUUpdaterDelegate {
     private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "updates")
-    /// Sparkle holds its user driver weakly; this keeps it alive.
+    /// The user driver Sparkle reports to (SPUUpdater retains it too; kept here so its owner is explicit).
     private let driver: CardUserDriver
     private var updater: SPUUpdater!
 
@@ -19,7 +19,7 @@ final class SparkleUpdater: NSObject, Updating, SPUUpdaterDelegate {
         do {
             try updater.start()
         } catch {
-            logger.error("Sparkle did not start: \(error.localizedDescription, privacy: .public)")
+            logger.error("Sparkle did not start: \(error.localizedDescription, privacy: .private)")
             return nil
         }
         self.updater = updater
