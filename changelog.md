@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-25
+
+### Added
+- One-click updates: "Update now" in the update card downloads, verifies and installs the new version, shows progress in the card, and relaunches the app (Sparkle). Settings → "Acknowledgements" lists Sparkle's license.
+
+### Changed
+- Update checks now read the Sparkle feed published with each GitHub release instead of the GitHub API; the "Check for updates" switch and daily cadence are unchanged. The Homebrew cask is marked `auto_updates`.
+
 ## [0.2.4] - 2026-09-25
 
 ### Added
