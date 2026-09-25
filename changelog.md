@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- A speaker that reissued its TLS certificate (Sonos certificates last about six months) was rejected on every request since 0.2.1, so rooms it coordinated showed no music. The app now re-pins a changed key when the new certificate still names that speaker (its CN is the MAC inside the player ID); any other changed key is still rejected.
+
 ### Changed
 - The copied upgrade command is now `brew update && brew upgrade --cask remote-for-sonos`, so it upgrades even when Homebrew's copy of the tap is a few hours stale (before, Homebrew could answer "already installed").
 

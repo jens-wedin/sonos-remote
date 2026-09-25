@@ -186,7 +186,7 @@ public actor Household {
             // one, since DHCP may already have handed it to some other device.
             if let old = addresses[player.id], old != player.address { trustStore?.revoke(host: old) }
             addresses[player.id] = player.address
-            trustStore?.allow(host: player.address)
+            trustStore?.allow(host: player.address, playerID: player.id)
             if snapshot.status == .noPlayersFound {
                 // A player (re)announced after every fetch had failed and the timeout gave up;
                 // give bootstrapping another chance. Covers both the common case (some other
@@ -315,7 +315,7 @@ public actor Household {
             apply(.topology(groups: filtered.groups, players: filtered.players))
             for player in snapshot.players {
                 addresses[player.id] = player.address
-                trustStore?.allow(host: player.address)
+                trustStore?.allow(host: player.address, playerID: player.id)
             }
             // A late success arriving after Local Network access was denied must not paper over
             // that status with `.ready`.
@@ -428,7 +428,7 @@ public actor Household {
             apply(.topology(groups: filtered.groups, players: filtered.players))
             for player in snapshot.players {
                 addresses[player.id] = player.address
-                trustStore?.allow(host: player.address)
+                trustStore?.allow(host: player.address, playerID: player.id)
             }
             await ensureSockets()
             await reconcileSubscriptions()
@@ -466,7 +466,7 @@ public actor Household {
     private func allowTrust(forWirePlayers players: [WirePlayer]) {
         for player in players where !removedPlayers.contains(player.id) {
             if let address = WirePlayer.host(fromWebsocketURL: player.websocketUrl) {
-                trustStore?.allow(host: address)
+                trustStore?.allow(host: address, playerID: player.id)
             }
         }
     }

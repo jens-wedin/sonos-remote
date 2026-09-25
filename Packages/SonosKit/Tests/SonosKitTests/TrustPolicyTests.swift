@@ -76,12 +76,54 @@ import Testing
         #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB) == .accept, "after revoke the next contact pins afresh")
     }
 
+    @Test func commonNameMatchesTheMacInsideTheRinconID() {
+        #expect(TrustPolicy.playerID("RINCON_347E5C04E98101400", matchesCommonName: "347E5C04E981"))
+        #expect(TrustPolicy.playerID("RINCON_347E5C04E98101400", matchesCommonName: "347e5c04e981"), "hex case is not significant")
+        #expect(!TrustPolicy.playerID("RINCON_347E5C04E98101400", matchesCommonName: "48A6B8194D2A"), "another speaker's certificate")
+        #expect(!TrustPolicy.playerID("RINCON_347E5C04E98101400", matchesCommonName: "347E5C04E98"), "a prefix is not a match")
+        #expect(!TrustPolicy.playerID("RINCON_347E5C04E98101400", matchesCommonName: ""))
+        #expect(!TrustPolicy.playerID("347E5C04E98101400", matchesCommonName: "347E5C04E981"), "not a RINCON id")
+    }
+
+    @Test func aRotatedCertificateForTheSameSpeakerIsRepinned() {
+        let pins = MemoryPins()
+        let store = TrustStore(pinStore: pins)
+        store.allow(host: "192.168.1.10", playerID: "RINCON_347E5C04E98101400")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: "347E5C04E981") == .accept,
+                "the speaker reissued its certificate; its CN still names it")
+        #expect(pins.saved["192.168.1.10"] == keyB, "the new key replaced the old pin")
+    }
+
+    @Test func aChangedKeyNamingAnotherSpeakerIsStillRejected() {
+        let store = TrustStore()
+        store.allow(host: "192.168.1.10", playerID: "RINCON_347E5C04E98101400")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: "48A6B8194D2A") == .reject)
+        #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: nil) == .reject)
+        #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981") == .accept,
+                "a rejected impostor leaves the original pin in place")
+    }
+
+    @Test func aChangedKeyOnAHostWithNoKnownPlayerIsStillRejected() {
+        let store = TrustStore()
+        store.allow(host: "192.168.1.10")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: "347E5C04E981") == .reject)
+    }
+
+    @Test func revokeForgetsThePlayerIdentity() {
+        let store = TrustStore()
+        store.allow(host: "192.168.1.10", playerID: "RINCON_347E5C04E98101400")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        store.revoke(host: "192.168.1.10")
+        store.allow(host: "192.168.1.10")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: "48A6B8194D2A")
+        #expect(store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981") == .reject,
+                "the address now belongs to an unnamed host; the old player's identity must not re-pin it")
+    }
+
     @Test func pinsPersistThroughTheStore() {
-        final class MemoryPins: TrustPinStore, @unchecked Sendable {
-            var saved: [String: Data] = [:]
-            func load() -> [String: Data] { saved }
-            func save(_ pins: [String: Data]) { saved = pins }
-        }
         let pins = MemoryPins()
         let first = TrustStore(pinStore: pins)
         first.allow(host: "192.168.1.10")
@@ -92,4 +134,10 @@ import Testing
         #expect(second.decision(host: "192.168.1.10", port: 1443, keyHash: keyB) == .reject, "the persisted pin survives a relaunch")
         #expect(second.decision(host: "192.168.1.10", port: 1443, keyHash: keyA) == .accept)
     }
+}
+
+private final class MemoryPins: TrustPinStore, @unchecked Sendable {
+    var saved: [String: Data] = [:]
+    func load() -> [String: Data] { saved }
+    func save(_ pins: [String: Data]) { saved = pins }
 }

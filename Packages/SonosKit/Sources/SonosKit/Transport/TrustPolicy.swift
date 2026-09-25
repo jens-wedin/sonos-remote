@@ -66,6 +66,24 @@ public enum TrustPolicy {
         return Data(SHA256.hash(data: bytes))
     }
 
+    /// The leaf certificate's common name. Sonos names each speaker's certificate after its MAC.
+    public static func leafCommonName(of trust: SecTrust) -> String? {
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first else { return nil }
+        var name: CFString?
+        guard SecCertificateCopyCommonName(leaf, &name) == errSecSuccess else { return nil }
+        return name as String?
+    }
+
+    /// Whether `commonName` is the MAC embedded in `playerID` (`RINCON_<12 hex MAC><port>`), which is
+    /// how a speaker's certificate names it (`CN=347E5C04E981` for `RINCON_347E5C04E98101400`).
+    public static func playerID(_ playerID: String, matchesCommonName commonName: String) -> Bool {
+        let prefix = "RINCON_"
+        guard playerID.hasPrefix(prefix) else { return false }
+        let mac = playerID.dropFirst(prefix.count).prefix(12)
+        return mac.count == 12 && mac.uppercased() == commonName.uppercased()
+    }
+
     private static func isIPv4Literal(_ host: String) -> Bool {
         let parts = host.split(separator: ".", omittingEmptySubsequences: false)
         return parts.count == 4 && parts.allSatisfy { octet($0) != nil }
@@ -86,10 +104,15 @@ public enum TrustPolicy {
 }
 
 /// Hosts discovered on the LAN whose self-signed certificate we accept, pinned to the key seen on first contact.
+/// Speakers reissue their certificates (they last about six months), so a changed key is re-pinned when the
+/// new certificate still names the player discovery put at that address; any other changed key is rejected.
 public final class TrustStore: Sendable {
     private struct State: Sendable {
         var hosts: Set<String> = []
         var pins: [String: Data] = [:]
+        /// The player ID each host was allowed for, when known. Not persisted: discovery and
+        /// topology re-establish it every launch before the first request goes out.
+        var playerIDs: [String: String] = [:]
     }
 
     private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "trust")
@@ -101,33 +124,46 @@ public final class TrustStore: Sendable {
         state = Mutex(State(hosts: [], pins: pinStore?.load() ?? [:]))
     }
 
-    public func allow(host: String) {
+    /// Allows `host`; `playerID` records which speaker lives there so a reissued certificate can be re-pinned.
+    public func allow(host: String, playerID: String? = nil) {
         guard TrustPolicy.isLocalSpeakerAddress(host) else { return }
-        state.withLock { _ = $0.hosts.insert(host) }
+        state.withLock {
+            _ = $0.hosts.insert(host)
+            if let playerID { $0.playerIDs[host] = playerID }
+        }
     }
 
-    /// Forget a host and its pin; the next contact pins afresh.
+    /// Forget a host, its pin and its player; the next contact pins afresh.
     public func revoke(host: String) {
         let pins = state.withLock { s -> [String: Data] in
             s.hosts.remove(host)
             s.pins[host] = nil
+            s.playerIDs[host] = nil
             return s.pins
         }
         pinStore?.save(pins)
     }
 
-    /// Trust-on-first-use: an allowed host with no pin records `keyHash`; afterwards the key must match.
-    public func decision(host: String, port: Int, keyHash: Data) -> TrustDecision {
+    /// Trust-on-first-use: an allowed host with no pin records `keyHash`; afterwards the key must match,
+    /// unless the certificate's `commonName` names the player allowed at that host (a reissued certificate).
+    public func decision(host: String, port: Int, keyHash: Data, commonName: String? = nil) -> TrustDecision {
         guard port == TrustPolicy.speakerPort, TrustPolicy.isLocalSpeakerAddress(host) else { return .reject }
-        let (decision, pins) = state.withLock { s -> (TrustDecision, [String: Data]?) in
-            guard s.hosts.contains(host) else { return (.reject, nil) }
-            if let pinned = s.pins[host] {
-                return (pinned == keyHash ? .accept : .reject, nil)
+        let (decision, pins, repinned) = state.withLock { s -> (TrustDecision, [String: Data]?, Bool) in
+            guard s.hosts.contains(host) else { return (.reject, nil, false) }
+            if let pinned = s.pins[host], pinned != keyHash {
+                guard let playerID = s.playerIDs[host], let commonName,
+                      TrustPolicy.playerID(playerID, matchesCommonName: commonName) else { return (.reject, nil, false) }
+                s.pins[host] = keyHash
+                return (.accept, s.pins, true)
             }
+            if s.pins[host] != nil { return (.accept, nil, false) }
             s.pins[host] = keyHash
-            return (.accept, s.pins)
+            return (.accept, s.pins, false)
         }
         if let pins { pinStore?.save(pins) }
+        if repinned {
+            logger.notice("re-pinned \(host, privacy: .private(mask: .hash)): the speaker reissued its certificate")
+        }
         if decision == .reject {
             logger.error("rejected certificate for \(host, privacy: .private(mask: .hash)) on port \(port): key does not match the pinned speaker")
         }

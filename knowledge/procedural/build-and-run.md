@@ -4,12 +4,17 @@ Xcode 26 is installed but `xcode-select` points at the Command Line Tools. Expor
 
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
+Use `xcrun swift`, not bare `swift`: a swiftly toolchain (`~/.swiftly/bin/swift`, 6.2.x) sits first on PATH
+and fails against Xcode's SDK with `unknown argument: '-target-arch-variant'`.
+After an Xcode update, accept the license once in a real Terminal (not the `!` prompt, which can't read a password):
+`sudo DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -license accept`.
+
 ## Package
 
     cd Packages/SonosKit
-    swift test                       # all tests
-    swift test --filter ReducerTests # one suite
-    swift run sonosctl list          # against the real speakers (Terminal needs Local Network permission)
+    xcrun swift test                       # all tests
+    xcrun swift test --filter ReducerTests # one suite
+    xcrun swift run sonosctl list          # against the real speakers (Terminal needs Local Network permission)
 
 ## App
 

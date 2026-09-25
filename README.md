@@ -59,7 +59,7 @@ Once a day the app asks github.com for the latest release so it can tell you whe
 See `knowledge/procedural/build-and-run.md`. Short version:
 
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-    (cd Packages/SonosKit && swift test)
+    (cd Packages/SonosKit && xcrun swift test)
     xcodegen generate && xcodebuild -project SonosRemote.xcodeproj -scheme SonosRemote -configuration Debug -derivedDataPath .build/xcode build
 
 Before tagging a release, also run through `knowledge/procedural/manual-test-checklist.md` against real speakers.

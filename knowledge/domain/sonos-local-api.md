@@ -1,6 +1,7 @@
 # Sonos local API (verified on Jens's S2 system, firmware 96.x)
 
 - Discovery: Bonjour `_sonos._tcp`. TXT keys: `uuid` (RINCON_…), `hhid`, `location` (http://IP:1400/xml/device_description.xml), `sslport` 1443, `wss` /websocket/api, `variant` 2 = S2.
+- TLS: each speaker's certificate is issued by "Sonos Device Authentication Root CA" (only the leaf is sent), `CN` = the speaker's MAC, which is the 12 hex digits after `RINCON_` in its player ID (`CN=347E5C04E981` ↔ `RINCON_347E5C04E98101400`). Certificates last ~6.5 months and are reissued with a **new key** (two speakers rotated on 2026-09-21), so a key pin must be allowed to follow a reissue; `TrustStore` re-pins when the new CN matches the player allowed at that address.
 - REST: `https://IP:1443/api/v1/...`, header `X-Sonos-Api-Key: 123e4567-e89b-12d3-a456-426655440000`, self-signed cert, responses use `Connection: Close`.
 - Group-scoped calls must go to the group's coordinator. Sent to a member you get 404 `groupCoordinatorChanged` with `GROUP_STATUS_MOVED` + `playerId` of the coordinator, or `GROUP_STATUS_GONE`.
 - Missing key → 400 `globalError` `ERROR_API_KEY_VALIDATION_FAILED`. Authentication switched on in the Sonos app → 401 `ERROR_NOT_AUTHORIZED`.
