@@ -38,7 +38,7 @@ Releases are built on the owner's Mac by `scripts/release.sh`, signed with a Dev
 
        scripts/release.sh X.Y.Z
 
-   The script refuses to run on a dirty tree, an existing tag, a missing changelog section, missing credentials, or a missing/mismatched Sparkle key. Besides the app zip, it now signs the zip with the Sparkle key and writes `appcast.xml` (via `scripts/make-appcast.sh`) next to it. It writes everything under `.build/release/X.Y.Z/`, creates the `vX.Y.Z` tag through the GitHub Release, uploads both `Remote-for-Sonos-X.Y.Z.zip` and `appcast.xml`, and pushes the updated cask.
+   The script refuses to run on a dirty tree, an existing tag, a missing changelog section, missing credentials, or a missing/mismatched Sparkle key. Besides the app zip, it now signs the zip with the Sparkle key and writes `appcast.xml` (via `scripts/make-appcast.sh`) next to it. It writes everything under `.build/release/X.Y.Z/`, creates the `vX.Y.Z` tag through the GitHub Release, uploads both `Remote-for-Sonos-X.Y.Z.zip` and `appcast.xml`, and pushes the updated cask. After publishing, the script verifies the live feed; then open a build of the new version, Settings → Check now → expect "Up to date".
 4. On another Mac: `brew install --cask jens-wedin/tap/remote-for-sonos`, launch, allow Local Network access, check that rooms appear.
 5. See `knowledge/domain/sparkle-updates.md` for how the feed, keys, and sandbox pieces fit together, and for rehearsing an update against a local feed with `DOWNLOAD_BASE_URL` + `--skip-publish`.
 
@@ -51,6 +51,8 @@ Any release that touches `UpdateController`, the Sparkle feed, the entitlements,
 ## Rehearsing without credentials
 
 `scripts/release.sh X.Y.Z --skip-notarize --identity "Apple Development: hello@jenswedin.com (4B85FPKBH8)"` exercises archive, signing, and packaging with the development certificate and stops before notarization and publishing. Never distribute such a build.
+
+The rehearsal proves the pipeline, not the bytes: release.sh wipes `.build/release/X.Y.Z` and rebuilds with a new build number, and the rehearsal's appcast points at localhost, so never publish a rehearsal directory by hand.
 
 ## How the pieces fit
 

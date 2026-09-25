@@ -67,6 +67,7 @@ if [[ $SKIP_PUBLISH -eq 0 ]]; then
   git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
   gh auth status >/dev/null 2>&1 || die "gh is not authenticated"
 fi
+[[ $SKIP_PUBLISH -eq 1 || "$DOWNLOAD_BASE_URL" == "https://github.com/jens-wedin/sonos-remote/releases/download/$TAG" ]] || die "DOWNLOAD_BASE_URL is overridden; only rehearsals (--skip-publish) may do that"
 grep -q "^## \[$VERSION\]" changelog.md || die "changelog.md has no '## [$VERSION]' section; move the Unreleased notes there first"
 security find-identity -v -p codesigning | grep -q "$IDENTITY" || die "no code-signing identity matching '$IDENTITY' in the keychain (see knowledge/procedural/release.md)"
 if [[ $SKIP_NOTARIZE -eq 0 ]]; then
@@ -148,11 +149,25 @@ if [[ $SKIP_PUBLISH -eq 1 || $SKIP_NOTARIZE -eq 1 ]]; then
   exit 0
 fi
 
-[[ "$DOWNLOAD_BASE_URL" == "https://github.com/jens-wedin/sonos-remote/releases/download/$TAG" ]] || die "DOWNLOAD_BASE_URL is overridden; only rehearsals (--skip-publish) may do that"
-
 say "GitHub release $TAG"
 gh release create "$TAG" "$ZIP" "$APPCAST" --title "$APP_NAME $VERSION" --notes-file "$NOTES" --target "$(git rev-parse HEAD)"
 git fetch -q --tags origin
+
+say "Verify the live feed"
+FEED_URL="https://github.com/jens-wedin/sonos-remote/releases/latest/download/appcast.xml"
+FEED=""
+for attempt in 1 2 3 4 5 6; do
+  if FEED="$(curl -fsSL "$FEED_URL" 2>/dev/null)" \
+      && xmllint --noout - <<<"$FEED" >/dev/null 2>&1 \
+      && grep -q "<sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>" <<<"$FEED"; then
+    break
+  fi
+  FEED=""
+  [[ $attempt -eq 6 ]] && break
+  sleep 5
+done
+[[ -n "$FEED" ]] || die "live appcast at $FEED_URL did not download, validate, or mention $VERSION after retries"
+echo "live feed OK: $FEED_URL"
 
 say "Homebrew cask"
 if [[ ! -d "$TAP_DIR/.git" ]]; then

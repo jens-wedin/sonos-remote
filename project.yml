@@ -87,6 +87,7 @@ targets:
       - name: Strip Sparkle Downloader and sign Sparkle's helpers
         basedOnDependencyAnalysis: false
         script: |
+          set -euo pipefail
           # The app already has network access, so Sparkle's downloader XPC service is unused.
           # Archive builds: Xcode's "Code Sign on Copy" only re-signs the framework itself when it
           # copies Sparkle.framework into the app; the nested helpers stay ad-hoc signed as Sparkle
