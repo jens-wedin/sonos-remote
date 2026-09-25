@@ -137,7 +137,7 @@ struct UpdateCard: View {
 }
 
 /// Copies the Homebrew command, reads "Copied" for two seconds after a click and announces it.
-/// Shared by the update card ("Update via Homebrew") and the Settings version row ("Copy Homebrew command").
+/// Used by the update card's failure state ("Update via Homebrew").
 struct CopyCommandButton: View {
     var title = "Copy Homebrew command"
     var showsIcon = true
