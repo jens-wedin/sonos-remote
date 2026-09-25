@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-25
+
 ### Added
 - A yellow "Can't verify <room>" banner (and a VoiceOver announcement) when a speaker's certificate is rejected, instead of the room silently showing no music.
 
