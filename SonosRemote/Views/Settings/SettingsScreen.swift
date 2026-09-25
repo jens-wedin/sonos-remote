@@ -141,14 +141,18 @@ struct SettingsScreen: View {
 
     /// Under the version number when there's nothing to install: lets the user re-check a version they
     /// skipped, since Sparkle otherwise never offers a skipped version again until its own next check.
+    /// Shows nothing once `.none` if `checkNow()` itself couldn't run right now (state isn't idle, or no
+    /// updater is attached) — there's neither something to install, a check to offer, nor a result to show.
     @ViewBuilder private var manualCheckRow: some View {
         switch updates.manualCheck {
         case .none:
-            Button("Check now") { updates.checkNow() }
-                .buttonStyle(.plain)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.link)
-                .focusable()
+            if updates.canCheckNow {
+                Button("Check now") { updates.checkNow() }
+                    .buttonStyle(.plain)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.link)
+                    .focusable()
+            }
         case .checking:
             HStack(spacing: 4) {
                 ProgressView().controlSize(.mini)

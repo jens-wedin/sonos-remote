@@ -85,6 +85,11 @@ final class UpdateController {
         }
     }
 
+    /// Whether Settings' "Check now" can be shown/clicked right now.
+    var canCheckNow: Bool {
+        state == .idle && updater != nil && manualCheck == .none
+    }
+
     /// Posts a VoiceOver announcement. The app wires it to `AppState.announce`.
     @ObservationIgnored var announce: (String) -> Void = { _ in }
 
@@ -225,6 +230,9 @@ final class UpdateController {
 
     func updateFound(version: String, notesURL: URL?, stage: UpdateStage, reply: @escaping (UpdateChoice) -> Void) {
         latestKnown = version
+        // Cleared unconditionally, before the early return below: an offer that's already installing takes
+        // that path and never reaches the normal offer branch, but a manual check must still stop "Checking…".
+        if manualCheck == .checking { manualCheck = .none }
         if stage == .installing || installWhenFound {
             resolveWait()
             pendingReply = nil
@@ -232,7 +240,6 @@ final class UpdateController {
             reply(.install)
             return
         }
-        if manualCheck == .checking { manualCheck = .none }
         pendingReply?(.dismiss)
         pendingReply = reply
         state = .available(version: version, notesURL: notesURL)
@@ -288,6 +295,8 @@ final class UpdateController {
             state = .idle
             acknowledgement()
         case .idle:
+            // Set before acknowledging, for the same reason as notFound(): dismissed()'s own
+            // .checking-clearing fallback must not run before the result is recorded.
             if manualCheck == .checking {
                 manualCheck = .failed
                 announce("Couldn't check for updates")
@@ -300,12 +309,14 @@ final class UpdateController {
     }
 
     func notFound(acknowledgement: @escaping () -> Void) {
-        acknowledgement()
+        // Set before acknowledging: Sparkle can call dismissed() synchronously inside the acknowledgement,
+        // and dismissed()'s own .checking-clearing fallback must not run before the result is recorded.
         if manualCheck == .checking {
             manualCheck = .upToDate
             announce("Up to date")
             scheduleManualCheckReset()
         }
+        acknowledgement()
         guard installWhenFound else { return }
         resolveWait()
         state = .idle
@@ -315,6 +326,11 @@ final class UpdateController {
 
     /// Sparkle ended its session. A failure stays until the user dismisses it; "Installing…" stays until the app quits.
     func dismissed() {
+        // Some drivers only ever call dismissed() for an info-only "no update" result — never notFound(),
+        // failed(), or updateFound(). Without this, a manual check could stay "Checking…" forever. Harmless
+        // when notFound()/failed() already turned .checking into a result before calling their acknowledgement,
+        // since by then this simply finds nothing to clear.
+        if manualCheck == .checking { manualCheck = .none }
         // The fast path for a deferred check: install()/retry() couldn't ask Sparkle because it was still
         // finishing this very session, and now it has ended. If Sparkle called this from inside the
         // acknowledgement itself (before `checkWhenSessionEnds` was even set) the poll below still catches it.

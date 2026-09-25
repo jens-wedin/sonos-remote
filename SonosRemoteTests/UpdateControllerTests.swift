@@ -280,6 +280,7 @@ final class Recorder {
         #expect(h.controller.state == .idle)
         #expect(h.recorder.acknowledgements == 1)
         #expect(h.recorder.spoken.isEmpty)
+        #expect(h.controller.manualCheck == .none, "not a manual check, so it must not show a result either")
     }
 
     @Test func anOfferThatIsAlreadyInstallingContinuesWithoutAClick() {
@@ -437,5 +438,100 @@ final class Recorder {
         #expect(h.controller.manualCheck == .none)
         #expect(h.recorder.spoken.isEmpty)
         #expect(h.controller.state == .idle)
+    }
+
+    // MARK: "Check now" — fix round 1 (manualCheck must never stay .checking forever)
+
+    /// An offer that's already installing takes the early-return path in `updateFound`; `.checking` must
+    /// still clear even though the normal offer branch (where the old fix lived) never runs.
+    @Test func anOfferAlreadyInstallingDuringAManualCheckClearsManualCheckAndContinues() {
+        let h = make()
+        h.controller.checkNow()
+        offer(h, stage: .installing)
+        #expect(h.controller.manualCheck == .none)
+        #expect(h.recorder.choices == [.install], "the existing install-without-a-click behaviour is unchanged")
+        #expect(h.controller.state == .installing(version: "0.2.5"))
+    }
+
+    /// Some Sparkle drivers only ever call `dismissed()` for an info-only "no update" result — never
+    /// `notFound`/`failed`/`updateFound`. `.checking` must not survive that.
+    @Test func aManualCheckClearsWhenSparkleOnlyCallsDismissed() {
+        let h = make()
+        h.controller.checkNow()
+        h.controller.dismissed()
+        #expect(h.controller.manualCheck == .none)
+    }
+
+    @Test func notFoundDuringAManualCheckSurvivesASynchronousDismissedInsideTheAcknowledgement() {
+        let h = make()
+        h.controller.checkNow()
+        h.controller.notFound {
+            h.recorder.acknowledge()
+            h.controller.dismissed() // Sparkle calls dismissed() synchronously inside the acknowledgement.
+        }
+        #expect(h.controller.manualCheck == .upToDate, "the result must survive dismissed()'s own .checking-clearing fallback")
+        #expect(h.recorder.spoken == ["Up to date"])
+        #expect(h.recorder.acknowledgements == 1)
+    }
+
+    @Test func failedDuringAManualCheckSurvivesASynchronousDismissedInsideTheAcknowledgement() {
+        let h = make()
+        h.controller.checkNow()
+        h.controller.failed(message: "x") {
+            h.recorder.acknowledge()
+            h.controller.dismissed()
+        }
+        #expect(h.controller.manualCheck == .failed, "the result must survive dismissed()'s own .checking-clearing fallback")
+        #expect(h.recorder.spoken == ["Couldn't check for updates"])
+        #expect(h.recorder.acknowledgements == 1)
+    }
+
+    // MARK: "Check now" — fix round 1, canCheckNow and remaining minor items
+
+    @Test func canCheckNowInTheObviousStates() {
+        let h = make()
+        #expect(h.controller.canCheckNow, "idle, no manual check yet, updater attached")
+        offer(h)
+        #expect(!h.controller.canCheckNow, "an offer is showing")
+        h.controller.skip()
+        #expect(h.controller.canCheckNow, "back to idle")
+        h.controller.checkNow()
+        #expect(!h.controller.canCheckNow, "already checking")
+    }
+
+    @Test func checkNowDoesNothingWithoutAnAttachedUpdater() {
+        let defaults = UserDefaults(suiteName: "UpdateControllerTests-\(UUID())")!
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("UpdateControllerTests-\(UUID())"))
+        let controller = UpdateController(defaults: defaults, pasteboard: pasteboard)
+        #expect(!controller.canCheckNow, "no updater attached")
+        controller.checkNow()
+        #expect(controller.manualCheck == .none)
+    }
+
+    @Test func checkNowIsIgnoredWhileUpToDateOrFailedIsShowing() {
+        let upToDate = make()
+        upToDate.controller.checkNow()
+        upToDate.controller.notFound(acknowledgement: upToDate.recorder.acknowledge)
+        #expect(upToDate.controller.manualCheck == .upToDate)
+        upToDate.controller.checkNow()
+        #expect(upToDate.updater.userChecks == 1, "ignored while .upToDate is showing")
+
+        let failed = make()
+        failed.controller.checkNow()
+        failed.controller.failed(message: "x", acknowledgement: failed.recorder.acknowledge)
+        #expect(failed.controller.manualCheck == .failed)
+        failed.controller.checkNow()
+        #expect(failed.updater.userChecks == 1, "ignored while .failed is showing")
+    }
+
+    @Test func anOfferArrivingWhileUpToDateIsShowingIsUndisturbedByTheLaterReset() async throws {
+        let h = make(resultDisplay: .milliseconds(50))
+        h.controller.checkNow()
+        h.controller.notFound(acknowledgement: h.recorder.acknowledge)
+        #expect(h.controller.manualCheck == .upToDate)
+        offer(h)
+        #expect(h.controller.state == .available(version: "0.2.5", notesURL: notes))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.controller.state == .available(version: "0.2.5", notesURL: notes), "the delayed manualCheck reset must not disturb the showing offer")
     }
 }
