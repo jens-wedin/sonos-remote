@@ -37,12 +37,18 @@ final class Recorder {
         let pasteboard: NSPasteboard
     }
 
-    func make(legacyEnabled: Bool? = nil, checkTimeout: Duration = .seconds(60)) -> Harness {
+    func make(
+        legacyEnabled: Bool? = nil,
+        checkTimeout: Duration = .seconds(60),
+        pollInterval: Duration = .milliseconds(100)
+    ) -> Harness {
         let defaults = UserDefaults(suiteName: "UpdateControllerTests-\(UUID())")!
         if let legacyEnabled { defaults.set(legacyEnabled, forKey: UpdateController.legacyEnabledKey) }
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("UpdateControllerTests-\(UUID())"))
         let now = self.now
-        let controller = UpdateController(defaults: defaults, pasteboard: pasteboard, now: { now }, checkTimeout: checkTimeout)
+        let controller = UpdateController(
+            defaults: defaults, pasteboard: pasteboard, now: { now }, checkTimeout: checkTimeout, pollInterval: pollInterval
+        )
         let recorder = Recorder()
         controller.announce = { recorder.spoken.append($0) }
         let updater = FakeUpdater()
@@ -209,6 +215,51 @@ final class Recorder {
         #expect(h.controller.state == .downloading(version: "0.2.5", fraction: nil))
         try await Task.sleep(for: .milliseconds(300))
         #expect(h.controller.state == .downloading(version: "0.2.5", fraction: nil), "the watchdog must not fire once Sparkle has answered")
+    }
+
+    /// Reproduces the rehearsal bug: Sparkle can tear the failed session down (calling `dismissed()`)
+    /// *inside* the acknowledgement `retry()` itself invokes, before `checkWhenSessionEnds` is even set —
+    /// so `dismissed()`'s fast path finds nothing to do, and `canCheckForUpdates` only turns true moments
+    /// later with no further `dismissed()` call to notice it. Only a poll can still start the check.
+    @Test func retryStartsTheCheckEvenWhenSparkleDismissesInsideTheAcknowledgement() async throws {
+        let h = make(checkTimeout: .seconds(5), pollInterval: .milliseconds(20))
+        offer(h)
+        h.controller.install()
+        h.updater.canCheckForUpdates = false
+        h.controller.failed(message: "The download failed.") {
+            h.recorder.acknowledge()
+            h.controller.dismissed() // Sparkle tears the failed session down inside the acknowledgement itself.
+        }
+        h.controller.retry()
+        #expect(h.updater.userChecks == 0, "Sparkle is still finishing the failed session")
+        try await Task.sleep(for: .milliseconds(80))
+        h.updater.canCheckForUpdates = true
+        // Poll-wait: nothing calls dismissed() again, so only the poll can notice Sparkle is ready now.
+        var sawTheCheck = false
+        for _ in 0..<20 {
+            if h.updater.userChecks == 1 { sawTheCheck = true; break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(sawTheCheck, "the poll must start the check once Sparkle is ready, even without another dismissed()")
+        #expect(h.controller.state == .downloading(version: "0.2.5", fraction: nil), "no failure: Sparkle simply took a moment to become ready")
+    }
+
+    /// The other side of the same fix: if Sparkle never becomes ready, the watchdog — not the poll — must
+    /// still resolve the card, and no check must ever have been made.
+    @Test func aCheckThatNeverBecomesReadyStillFailsViaTheWatchdogAlone() async throws {
+        let h = make(checkTimeout: .milliseconds(80), pollInterval: .milliseconds(20))
+        offer(h)
+        h.controller.install()
+        h.updater.canCheckForUpdates = false
+        h.controller.failed(message: "The download failed.") {
+            h.recorder.acknowledge()
+            h.controller.dismissed()
+        }
+        h.controller.retry()
+        try await Task.sleep(for: .milliseconds(400))
+        #expect(h.updater.userChecks == 0, "canCheckForUpdates never turned true, so no check was ever made")
+        #expect(h.controller.state == .failed(version: "0.2.5", message: "The update check did not start."))
+        #expect(h.recorder.spoken.last == "Update failed")
     }
 
     @Test func dismissingAFailureAcknowledgesItAndHidesTheCard() {

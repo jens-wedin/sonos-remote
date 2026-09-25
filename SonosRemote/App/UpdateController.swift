@@ -87,14 +87,22 @@ final class UpdateController {
     @ObservationIgnored private let now: () -> Date
     /// How long "Update now"/"Try again" waits for Sparkle to call back after being asked to check.
     @ObservationIgnored private let checkTimeout: Duration
+    /// How often the deferred check polls `canCheckForUpdates` while waiting for Sparkle to finish another session.
+    @ObservationIgnored private let pollInterval: Duration
     @ObservationIgnored private var pendingReply: ((UpdateChoice) -> Void)?
     @ObservationIgnored private var pendingAcknowledgement: (() -> Void)?
     /// Set when "Update now" or "Try again" had to ask Sparkle first: the next offer installs without another click.
     @ObservationIgnored private var installWhenFound = false
-    /// Set when Sparkle couldn't be asked to check because it was still finishing another session; asked again once that session ends.
+    /// Set when Sparkle couldn't be asked to check because it was still finishing another session; asked again
+    /// once that session ends — either from `dismissed()`'s fast path, or from the poll below, whichever
+    /// notices first. `dismissed()` alone isn't reliable here: Sparkle can tear that session down (and call
+    /// `dismissed()`) synchronously inside the very acknowledgement `retry()` invokes, before this flag is
+    /// even set, and it makes no further `dismissed()` call afterwards.
     @ObservationIgnored private var checkWhenSessionEnds = false
     /// Guards against a silently stuck card: fires if Sparkle never calls back after `install()`/`retry()` asked it to check.
     @ObservationIgnored private var watchdogTask: Task<Void, Never>?
+    /// Re-checks `canCheckForUpdates` every `pollInterval` while `checkWhenSessionEnds` is set.
+    @ObservationIgnored private var checkPollTask: Task<Void, Never>?
     @ObservationIgnored private var expectedLength: UInt64 = 0
     @ObservationIgnored private var receivedLength: UInt64 = 0
     /// Step announcements already made in the current attempt ("Downloading update", …).
@@ -106,12 +114,14 @@ final class UpdateController {
         defaults: UserDefaults = .standard,
         pasteboard: NSPasteboard = .general,
         now: @escaping () -> Date = Date.init,
-        checkTimeout: Duration = .seconds(30)
+        checkTimeout: Duration = .seconds(30),
+        pollInterval: Duration = .milliseconds(100)
     ) {
         self.defaults = defaults
         self.pasteboard = pasteboard
         self.now = now
         self.checkTimeout = checkTimeout
+        self.pollInterval = pollInterval
     }
 
     /// Connects the updater (kept alive here) and adopts its "check automatically" setting.
@@ -270,12 +280,10 @@ final class UpdateController {
 
     /// Sparkle ended its session. A failure stays until the user dismisses it; "Installing…" stays until the app quits.
     func dismissed() {
-        // install()/retry() couldn't ask Sparkle to check because it was still finishing this very session;
-        // now that it has ended, ask again. If Sparkle still can't check, the watchdog resolves it.
-        if checkWhenSessionEnds, updater?.canCheckForUpdates == true {
-            checkWhenSessionEnds = false
-            updater?.checkForUpdates()
-        }
+        // The fast path for a deferred check: install()/retry() couldn't ask Sparkle because it was still
+        // finishing this very session, and now it has ended. If Sparkle called this from inside the
+        // acknowledgement itself (before `checkWhenSessionEnds` was even set) the poll below still catches it.
+        startDeferredCheckIfReady()
         guard !installWhenFound else { return }
         switch state {
         case .failed, .installing, .idle:
@@ -322,15 +330,44 @@ final class UpdateController {
         announce(message)
     }
 
-    /// Asks Sparkle to check now, unless it's still finishing another session — then `dismissed()` asks again
-    /// once that session ends. Either way, a watchdog guards against Sparkle never calling back at all.
+    /// Asks Sparkle to check now, unless it's still finishing another session — then both `dismissed()` and a
+    /// poll race to ask again as soon as it can. Either way, a watchdog guards against Sparkle never calling
+    /// back at all.
     private func requestCheck(from updater: any Updating, for version: String) {
         if updater.canCheckForUpdates {
             updater.checkForUpdates()
         } else {
             checkWhenSessionEnds = true
+            startCheckPoll()
         }
         startWatchdog(for: version)
+    }
+
+    /// Sparkle may tear its old session down (and call `dismissed()`) synchronously inside the very
+    /// acknowledgement `retry()` invokes — before `checkWhenSessionEnds` is even set — and never call
+    /// `dismissed()` again for this attempt. So this poll and `dismissed()`'s fast path both watch for
+    /// readiness; whichever notices first asks Sparkle to check, exactly once.
+    private func startCheckPoll() {
+        checkPollTask?.cancel()
+        let interval = pollInterval
+        checkPollTask = Task { @MainActor [weak self] in
+            while true {
+                guard let self, !Task.isCancelled, self.checkWhenSessionEnds else { return }
+                if self.startDeferredCheckIfReady() { return }
+                try? await Task.sleep(for: interval)
+            }
+        }
+    }
+
+    /// Runs the check deferred by `requestCheck` as soon as Sparkle can take it. Returns whether it did.
+    @discardableResult
+    private func startDeferredCheckIfReady() -> Bool {
+        guard checkWhenSessionEnds, updater?.canCheckForUpdates == true else { return false }
+        checkWhenSessionEnds = false
+        checkPollTask?.cancel()
+        checkPollTask = nil
+        updater?.checkForUpdates()
+        return true
     }
 
     private func startWatchdog(for version: String) {
@@ -348,6 +385,8 @@ final class UpdateController {
     private func checkTimedOut(version: String) {
         guard installWhenFound, state.version == version else { return }
         watchdogTask = nil
+        checkPollTask?.cancel()
+        checkPollTask = nil
         checkWhenSessionEnds = false
         installWhenFound = false
         state = .failed(version: version, message: "The update check did not start.")
@@ -360,5 +399,7 @@ final class UpdateController {
         checkWhenSessionEnds = false
         watchdogTask?.cancel()
         watchdogTask = nil
+        checkPollTask?.cancel()
+        checkPollTask = nil
     }
 }
