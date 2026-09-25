@@ -87,6 +87,8 @@ struct SettingsScreen: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Color.link)
                                 .focusable()
+                        } else {
+                            manualCheckRow
                         }
                     }
                 }
@@ -134,6 +136,31 @@ struct SettingsScreen: View {
                 loginError = error.localizedDescription
                 launchAtLogin = SMAppService.mainApp.status == .enabled
             }
+        }
+    }
+
+    /// Under the version number when there's nothing to install: lets the user re-check a version they
+    /// skipped, since Sparkle otherwise never offers a skipped version again until its own next check.
+    @ViewBuilder private var manualCheckRow: some View {
+        switch updates.manualCheck {
+        case .none:
+            Button("Check now") { updates.checkNow() }
+                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.link)
+                .focusable()
+        case .checking:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text(verbatim: "Checking…")
+            }
+            .font(.caption)
+            .foregroundStyle(Color.supporting)
+            .accessibilityElement(children: .combine)
+        case .upToDate:
+            Text(verbatim: "Up to date").font(.caption).foregroundStyle(Color.supporting)
+        case .failed:
+            Text(verbatim: "Couldn't check").font(.caption).foregroundStyle(Color.errorText)
         }
     }
 

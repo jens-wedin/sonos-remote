@@ -40,14 +40,16 @@ final class Recorder {
     func make(
         legacyEnabled: Bool? = nil,
         checkTimeout: Duration = .seconds(60),
-        pollInterval: Duration = .milliseconds(100)
+        pollInterval: Duration = .milliseconds(100),
+        resultDisplay: Duration = .seconds(60)
     ) -> Harness {
         let defaults = UserDefaults(suiteName: "UpdateControllerTests-\(UUID())")!
         if let legacyEnabled { defaults.set(legacyEnabled, forKey: UpdateController.legacyEnabledKey) }
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("UpdateControllerTests-\(UUID())"))
         let now = self.now
         let controller = UpdateController(
-            defaults: defaults, pasteboard: pasteboard, now: { now }, checkTimeout: checkTimeout, pollInterval: pollInterval
+            defaults: defaults, pasteboard: pasteboard, now: { now },
+            checkTimeout: checkTimeout, pollInterval: pollInterval, resultDisplay: resultDisplay
         )
         let recorder = Recorder()
         controller.announce = { recorder.spoken.append($0) }
@@ -356,5 +358,84 @@ final class Recorder {
         #expect(h.controller.shouldAnnounce("0.2.5"))
         #expect(!h.controller.shouldAnnounce("0.2.5"))
         #expect(h.controller.shouldAnnounce("0.2.6"))
+    }
+
+    // MARK: Settings' "Check now"
+
+    @Test func checkNowStartsACheckAndShowsChecking() {
+        let h = make()
+        h.controller.checkNow()
+        #expect(h.updater.userChecks == 1)
+        #expect(h.controller.manualCheck == .checking)
+    }
+
+    @Test func anOfferDuringAManualCheckShowsTheCardAndClearsManualCheck() {
+        let h = make()
+        h.controller.checkNow()
+        offer(h)
+        #expect(h.controller.state == .available(version: "0.2.5", notesURL: notes))
+        #expect(h.controller.manualCheck == .none)
+    }
+
+    @Test func notFoundDuringAManualCheckShowsUpToDateThenClearsAfterAShortDisplay() async throws {
+        let h = make(resultDisplay: .milliseconds(50))
+        h.controller.checkNow()
+        h.controller.notFound(acknowledgement: h.recorder.acknowledge)
+        #expect(h.controller.manualCheck == .upToDate)
+        #expect(h.recorder.spoken == ["Up to date"])
+        #expect(h.recorder.acknowledgements == 1)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.controller.manualCheck == .none)
+    }
+
+    @Test func aFailureWhileIdleDuringAManualCheckShowsCouldntCheckThenClears() async throws {
+        let h = make(resultDisplay: .milliseconds(50))
+        h.controller.checkNow()
+        h.controller.failed(message: "The feed could not be loaded.", acknowledgement: h.recorder.acknowledge)
+        #expect(h.controller.manualCheck == .failed)
+        #expect(h.recorder.spoken == ["Couldn't check for updates"])
+        #expect(h.recorder.acknowledgements == 1)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.controller.manualCheck == .none)
+    }
+
+    @Test func checkNowIsIgnoredWhileAnOfferIsShowing() {
+        let h = make()
+        offer(h)
+        h.controller.checkNow()
+        #expect(h.updater.userChecks == 0)
+        #expect(h.controller.manualCheck == .none)
+    }
+
+    @Test func checkNowIsIgnoredWhileAlreadyChecking() {
+        let h = make()
+        h.controller.checkNow()
+        h.controller.checkNow()
+        #expect(h.updater.userChecks == 1, "a second click must not check again while already checking")
+    }
+
+    @Test func checkNowDoesNothingWhenSparkleCannotCheckYet() {
+        let h = make()
+        h.updater.canCheckForUpdates = false
+        h.controller.checkNow()
+        #expect(h.updater.userChecks == 0)
+        #expect(h.controller.manualCheck == .none)
+    }
+
+    @Test func checkNowWorksEvenWhenAutomaticChecksAreOff() {
+        let h = make()
+        h.controller.isEnabled = false
+        h.controller.checkNow()
+        #expect(h.updater.userChecks == 1)
+        #expect(h.controller.manualCheck == .checking)
+    }
+
+    @Test func notFoundOutsideAManualCheckOrARetryStaysSilent() {
+        let h = make()
+        h.controller.notFound(acknowledgement: h.recorder.acknowledge)
+        #expect(h.recorder.acknowledgements == 1)
+        #expect(h.controller.manualCheck == .none)
+        #expect(h.recorder.spoken.isEmpty)
+        #expect(h.controller.state == .idle)
     }
 }

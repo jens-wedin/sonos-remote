@@ -25,6 +25,11 @@ enum UpdateState: Equatable, Sendable {
     }
 }
 
+/// Settings' manual "Check now" row, separate from the card's `state`: a version the user skipped can
+/// otherwise never be offered again until the next automatic check, since Sparkle drops skipped versions
+/// from its own schedule (but not from a user-initiated `checkForUpdates()`).
+enum ManualCheck: Equatable, Sendable { case none, checking, upToDate, failed }
+
 /// The part of Sparkle's updater the controller uses. `SparkleUpdater` is the live one; tests use a fake.
 @MainActor protocol Updating: AnyObject {
     var automaticallyChecksForUpdates: Bool { get set }
@@ -50,6 +55,8 @@ final class UpdateController {
     private(set) var state: UpdateState = .idle
     /// Newest version Sparkle offered this session, skipped or not. The Settings version row shows it.
     private(set) var latestKnown: String?
+    /// Settings' "Check now" row. Independent of `state`: it only ever runs while `state == .idle`.
+    private(set) var manualCheck: ManualCheck = .none
 
     /// The "Check for updates" switch, stored by Sparkle. Off drops any offer; on checks at once.
     var isEnabled = true {
@@ -89,6 +96,8 @@ final class UpdateController {
     @ObservationIgnored private let checkTimeout: Duration
     /// How often the deferred check polls `canCheckForUpdates` while waiting for Sparkle to finish another session.
     @ObservationIgnored private let pollInterval: Duration
+    /// How long "Up to date"/"Couldn't check" stays on Settings' Version row before `manualCheck` resets to `.none`.
+    @ObservationIgnored private let resultDisplay: Duration
     @ObservationIgnored private var pendingReply: ((UpdateChoice) -> Void)?
     @ObservationIgnored private var pendingAcknowledgement: (() -> Void)?
     /// Set when "Update now" or "Try again" had to ask Sparkle first: the next offer installs without another click.
@@ -103,6 +112,8 @@ final class UpdateController {
     @ObservationIgnored private var watchdogTask: Task<Void, Never>?
     /// Re-checks `canCheckForUpdates` every `pollInterval` while `checkWhenSessionEnds` is set.
     @ObservationIgnored private var checkPollTask: Task<Void, Never>?
+    /// Resets `manualCheck` back to `.none` after `resultDisplay`, so "Check now" can run again.
+    @ObservationIgnored private var manualCheckResetTask: Task<Void, Never>?
     @ObservationIgnored private var expectedLength: UInt64 = 0
     @ObservationIgnored private var receivedLength: UInt64 = 0
     /// Step announcements already made in the current attempt ("Downloading update", …).
@@ -115,13 +126,15 @@ final class UpdateController {
         pasteboard: NSPasteboard = .general,
         now: @escaping () -> Date = Date.init,
         checkTimeout: Duration = .seconds(30),
-        pollInterval: Duration = .milliseconds(100)
+        pollInterval: Duration = .milliseconds(100),
+        resultDisplay: Duration = .seconds(3)
     ) {
         self.defaults = defaults
         self.pasteboard = pasteboard
         self.now = now
         self.checkTimeout = checkTimeout
         self.pollInterval = pollInterval
+        self.resultDisplay = resultDisplay
     }
 
     /// Connects the updater (kept alive here) and adopts its "check automatically" setting.
@@ -189,6 +202,15 @@ final class UpdateController {
         updater.checkForUpdatesInBackground()
     }
 
+    /// Settings' "Check now": the only way to find a version the user skipped again without waiting for the
+    /// next automatic check. User-initiated, so it works even with automatic checks off, and Sparkle ignores
+    /// the skip list for it (unlike its own schedule).
+    func checkNow() {
+        guard case .idle = state, let updater, manualCheck == .none, updater.canCheckForUpdates else { return }
+        manualCheck = .checking
+        updater.checkForUpdates()
+    }
+
     func copyCommand() {
         pasteboard.clearContents()
         pasteboard.setString(brewCommand, forType: .string)
@@ -210,6 +232,7 @@ final class UpdateController {
             reply(.install)
             return
         }
+        if manualCheck == .checking { manualCheck = .none }
         pendingReply?(.dismiss)
         pendingReply = reply
         state = .available(version: version, notesURL: notesURL)
@@ -264,13 +287,25 @@ final class UpdateController {
         case .available:
             state = .idle
             acknowledgement()
-        case .idle, .failed:
+        case .idle:
+            if manualCheck == .checking {
+                manualCheck = .failed
+                announce("Couldn't check for updates")
+                scheduleManualCheckReset()
+            }
+            acknowledgement()
+        case .failed:
             acknowledgement()
         }
     }
 
     func notFound(acknowledgement: @escaping () -> Void) {
         acknowledgement()
+        if manualCheck == .checking {
+            manualCheck = .upToDate
+            announce("Up to date")
+            scheduleManualCheckReset()
+        }
         guard installWhenFound else { return }
         resolveWait()
         state = .idle
@@ -401,5 +436,18 @@ final class UpdateController {
         watchdogTask = nil
         checkPollTask?.cancel()
         checkPollTask = nil
+    }
+
+    /// After showing "Up to date"/"Couldn't check" on the Version row, resets `manualCheck` so
+    /// `checkNow()` can run again.
+    private func scheduleManualCheckReset() {
+        manualCheckResetTask?.cancel()
+        let delay = resultDisplay
+        manualCheckResetTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self, !Task.isCancelled else { return }
+            self.manualCheckResetTask = nil
+            self.manualCheck = .none
+        }
     }
 }
