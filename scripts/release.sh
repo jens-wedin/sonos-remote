@@ -6,6 +6,7 @@
 # Steps: preflight checks → xcodegen → xcodebuild archive (Release, Developer ID, hardened runtime)
 # → codesign verification → notarize with notarytool → staple → Gatekeeper check → zip
 # → GitHub Release (creates the v<version> tag) → update the Homebrew cask in jens-wedin/homebrew-tap.
+# Every zip is also signed with the Sparkle EdDSA key and published with appcast.xml (the in-app update feed).
 #
 # One-time setup is documented in knowledge/procedural/release.md.
 # --skip-notarize and --identity exist so the packaging flow can be rehearsed with the
@@ -13,7 +14,7 @@
 
 set -euo pipefail
 
-usage() { sed -n '2,12p' "$0"; exit 2; }
+usage() { sed -n '2,13p' "$0"; exit 2; }
 
 VERSION="${1:-}"; shift || true
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || usage
@@ -49,6 +50,11 @@ ARCHIVE="$OUT/$PRODUCT.xcarchive"
 APP="$OUT/$APP_NAME.app"
 ZIP="$OUT/Remote-for-Sonos-$VERSION.zip"
 NOTES="$OUT/release-notes.md"
+APPCAST="$OUT/appcast.xml"
+SPARKLE_BIN="$REPO_ROOT/.build/xcode-release/SourcePackages/artifacts/sparkle/Sparkle/bin"
+# Where the appcast says the zip lives; the rehearsal points it at a local server.
+DOWNLOAD_BASE_URL="${DOWNLOAD_BASE_URL:-https://github.com/jens-wedin/sonos-remote/releases/download/$TAG}"
+NOTES_URL="https://github.com/jens-wedin/sonos-remote/releases/tag/$TAG"
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 die() { printf '\n\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -67,6 +73,7 @@ if [[ $SKIP_NOTARIZE -eq 0 ]]; then
   xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 || die "no notarytool keychain profile '$NOTARY_PROFILE' (see knowledge/procedural/release.md)"
 fi
 command -v xcodegen >/dev/null || die "xcodegen is not installed (brew install xcodegen)"
+command -v xmllint >/dev/null || die "xmllint is missing"
 
 BUILD_NUMBER="$(git rev-list --count HEAD)"
 echo "version $VERSION, build $BUILD_NUMBER, identity '$IDENTITY'"
@@ -81,8 +88,12 @@ awk -v v="$VERSION" '
 [[ -s "$NOTES" ]] || die "the changelog section for $VERSION is empty"
 cat "$NOTES"
 
-say "Generate project"
+say "Generate project and check the Sparkle key"
 xcodegen generate >/dev/null
+xcodebuild -resolvePackageDependencies -project "$PRODUCT.xcodeproj" -scheme "$PRODUCT" -derivedDataPath "$REPO_ROOT/.build/xcode-release" -quiet
+[[ -x "$SPARKLE_BIN/sign_update" ]] || die "Sparkle tools not found at $SPARKLE_BIN"
+KEYCHAIN_KEY="$("$SPARKLE_BIN/generate_keys" -p 2>/dev/null)" || die "no Sparkle signing key in the keychain (see knowledge/procedural/release.md)"
+grep -q "SUPublicEDKey: $KEYCHAIN_KEY" project.yml || die "the keychain's Sparkle key does not match SUPublicEDKey in project.yml"
 
 say "Archive (Release)"
 xcodebuild archive \
@@ -98,6 +109,7 @@ say "Verify signature"
 codesign --verify --deep --strict --verbose=2 "$APP"
 codesign -dvv "$APP" 2>&1 | grep -E "^Authority=|TeamIdentifier|Runtime Version" | head -4
 plutil -p "$APP/Contents/Info.plist" | grep -E "CFBundleShortVersionString|CFBundleVersion\""
+scripts/check-sparkle-config.sh "$APP" --release
 
 if [[ $SKIP_NOTARIZE -eq 0 ]]; then
   say "Notarize"
@@ -123,13 +135,23 @@ SHA256="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
 echo "$ZIP"
 echo "sha256 $SHA256"
 
+say "Sign the update and write the appcast"
+SIG_ATTRS="$("$SPARKLE_BIN/sign_update" "$ZIP")"
+SIGNATURE="$(sed -E 's/.*sparkle:edSignature="([^"]+)".*/\1/' <<<"$SIG_ATTRS")"
+"$SPARKLE_BIN/sign_update" --verify "$ZIP" "$SIGNATURE" >/dev/null || die "sign_update could not verify the signature it just made"
+scripts/make-appcast.sh "$VERSION" "$BUILD_NUMBER" "$DOWNLOAD_BASE_URL/Remote-for-Sonos-$VERSION.zip" "$NOTES_URL" "$SIG_ATTRS" > "$APPCAST"
+xmllint --noout "$APPCAST"
+echo "$APPCAST"
+
 if [[ $SKIP_PUBLISH -eq 1 || $SKIP_NOTARIZE -eq 1 ]]; then
   say "Done (not published)"
   exit 0
 fi
 
+[[ "$DOWNLOAD_BASE_URL" == "https://github.com/jens-wedin/sonos-remote/releases/download/$TAG" ]] || die "DOWNLOAD_BASE_URL is overridden; only rehearsals (--skip-publish) may do that"
+
 say "GitHub release $TAG"
-gh release create "$TAG" "$ZIP" --title "$APP_NAME $VERSION" --notes-file "$NOTES" --target "$(git rev-parse HEAD)"
+gh release create "$TAG" "$ZIP" "$APPCAST" --title "$APP_NAME $VERSION" --notes-file "$NOTES" --target "$(git rev-parse HEAD)"
 git fetch -q --tags origin
 
 say "Homebrew cask"

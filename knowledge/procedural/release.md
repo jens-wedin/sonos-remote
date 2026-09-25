@@ -18,6 +18,18 @@ Releases are built on the owner's Mac by `scripts/release.sh`, signed with a Dev
 
        gh repo create jens-wedin/homebrew-tap --public --description "Homebrew tap for Jens Wedin's apps"
 
+4. **Sparkle key (one time).** In-app updates are signed with an EdDSA (ed25519) key Sparkle manages in the Keychain; the script refuses to run without it.
+
+       .build/xcode/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys
+
+   Only run this bare (no flags) the very first time — it creates a new key in the owner's login Keychain (item "Private key for signing Sparkle updates") if one doesn't already exist, and prints the public key to put in `project.yml` as `SUPublicEDKey` (already done: `pxnmYayx/gtqoXrOa6kIaUD3OOmVSgY1G7yZom65BD0=`). Back it up once with:
+
+       .build/xcode/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -x ~/sparkle-private-key-backup.txt
+
+   and store that file's contents in the password manager, then delete the local copy. Verify the keychain matches `project.yml` at any time with `generate_keys -p`, which should print exactly the `SUPublicEDKey` value.
+
+   Only rotate this key while app builds are still signed with the same Developer ID certificate — a rotated key invalidates updates for everyone who hasn't yet received a build carrying the new public key, so a rotation needs a transition release that ships both.
+
 ## Cutting a release
 
 1. Run the manual checklist (`manual-test-checklist.md`) on the current build.
@@ -26,8 +38,9 @@ Releases are built on the owner's Mac by `scripts/release.sh`, signed with a Dev
 
        scripts/release.sh X.Y.Z
 
-   The script refuses to run on a dirty tree, an existing tag, a missing changelog section, or missing credentials. It writes everything under `.build/release/X.Y.Z/`, creates the `vX.Y.Z` tag through the GitHub Release, uploads `Remote-for-Sonos-X.Y.Z.zip`, and pushes the updated cask.
+   The script refuses to run on a dirty tree, an existing tag, a missing changelog section, missing credentials, or a missing/mismatched Sparkle key. Besides the app zip, it now signs the zip with the Sparkle key and writes `appcast.xml` (via `scripts/make-appcast.sh`) next to it. It writes everything under `.build/release/X.Y.Z/`, creates the `vX.Y.Z` tag through the GitHub Release, uploads both `Remote-for-Sonos-X.Y.Z.zip` and `appcast.xml`, and pushes the updated cask.
 4. On another Mac: `brew install --cask jens-wedin/tap/remote-for-sonos`, launch, allow Local Network access, check that rooms appear.
+5. See `knowledge/domain/sparkle-updates.md` for how the feed, keys, and sandbox pieces fit together, and for rehearsing an update against a local feed with `DOWNLOAD_BASE_URL` + `--skip-publish`.
 
 Preflight treats untracked files as a dirty tree (`git status --porcelain`), so commit or locally exclude stray files (for example design files under `knowledge/design/`) before running the script.
 
@@ -46,4 +59,3 @@ Preflight treats untracked files as a dirty tree (`git status --porcelain`), so 
 ## Known gaps
 
 - No app icon yet; the release shows the generic icon until one is added to an asset catalog and `project.yml`.
-- No in-app updater; users update with `brew upgrade` or by downloading the next zip.

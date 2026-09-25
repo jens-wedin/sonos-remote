@@ -8,6 +8,7 @@ cask "remote-for-sonos" do
   name "Remote for Sonos"
   desc "Menu bar controller for Sonos speakers on the local network"
   homepage "https://github.com/jens-wedin/sonos-remote"
+  auto_updates true
 
   depends_on macos: :tahoe
 
