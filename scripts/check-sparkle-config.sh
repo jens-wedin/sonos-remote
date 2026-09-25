@@ -18,5 +18,18 @@ FW="$APP/Contents/Frameworks/Sparkle.framework"
 [[ -d "$FW/Versions/B/XPCServices/Installer.xpc" ]] || fail "Installer.xpc missing"
 if [[ "$RELEASE" == "--release" ]]; then
   [[ ! -e "$FW/Versions/B/XPCServices/Downloader.xpc" ]] || fail "Downloader.xpc must be stripped from release builds"
+  # Xcode's "Code Sign on Copy" only re-signs Sparkle.framework itself on archive builds; its nested
+  # helpers ship ad-hoc signed and must be re-signed by hand with the Developer ID identity and a
+  # secure timestamp (project.yml's postBuildScripts), or Apple's notarization service rejects them.
+  check_helper_signed() {
+    local helper="$1" label="$2"
+    [[ -e "$helper" ]] || fail "$label missing"
+    local info; info="$(codesign -dvv "$helper" 2>&1)"
+    grep -q "^Authority=Developer ID Application" <<<"$info" || fail "$label is not signed with a Developer ID Application certificate"
+    grep -q "^Timestamp=" <<<"$info" || fail "$label signature is missing a secure timestamp"
+  }
+  check_helper_signed "$FW/Versions/B/XPCServices/Installer.xpc" "Installer.xpc"
+  check_helper_signed "$FW/Versions/B/Autoupdate" "Autoupdate"
+  check_helper_signed "$FW/Versions/B/Updater.app" "Updater.app"
 fi
 echo "sparkle config: ok"

@@ -84,14 +84,22 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_USER_SCRIPT_SANDBOXING: NO
     postBuildScripts:
-      - name: Strip Sparkle Downloader service
+      - name: Strip Sparkle Downloader and sign Sparkle's helpers
         basedOnDependencyAnalysis: false
         script: |
           # The app already has network access, so Sparkle's downloader XPC service is unused.
+          # Archive builds: Xcode's "Code Sign on Copy" only re-signs the framework itself when it
+          # copies Sparkle.framework into the app; the nested helpers stay ad-hoc signed as Sparkle
+          # ships them. Only Archive+Export would re-sign them, and release.sh copies the app
+          # straight from the archive, so each helper must be signed here with the Developer ID
+          # identity and a secure timestamp or Apple's notarization service rejects the archive.
           [ "$ACTION" = "install" ] || exit 0
           FW="${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Frameworks/Sparkle.framework"
           rm -rf "$FW/Versions/B/XPCServices/Downloader.xpc"
-          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --timestamp --options runtime --preserve-metadata=identifier,entitlements,requirements,flags,runtime "$FW"
+          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp "$FW/Versions/B/XPCServices/Installer.xpc"
+          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp "$FW/Versions/B/Autoupdate"
+          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp "$FW/Versions/B/Updater.app"
+          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp --preserve-metadata=identifier,entitlements,requirements,flags,runtime "$FW"
   SonosRemoteTests:
     type: bundle.unit-test
     platform: macOS
