@@ -20,7 +20,7 @@ The app talks to the speakers through Sonos's local Control API, which Sonos doe
 
 When a new version is out, the panel shows an "Update available" card. Click **Update now**: the app downloads the update, checks its signature, installs it and relaunches — no Terminal needed. "What's new" opens the release notes. Updates are checked once a day; turn that off under Settings → "Check for updates". Skipped a version? Settings → Version → **Check now** finds it again.
 
-Upgrading from 0.2.4 or earlier? Those versions can't update themselves yet — run `brew update && brew upgrade --cask remote-for-sonos` once to get 0.2.5; after that, updates are one click.
+Upgrading from 0.2.4 or earlier? Those versions can't update themselves yet — run `brew update && brew upgrade --cask remote-for-sonos` once to get 0.2.5 (or download the 0.2.5 zip from the Releases page if you installed it that way); after that, updates are one click.
 
 ## Features (v0.2.0)
 

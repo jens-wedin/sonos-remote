@@ -29,7 +29,7 @@ Sparkle's CLI tools ship as build artifacts, not something installed separately:
 
 ## Code
 
-- `SonosRemote/App/UpdateController.swift` — the state machine (idle/checking/available/downloading/installing/error) that drives the update card.
+- `SonosRemote/App/UpdateController.swift` — the state machine that drives the update card. UpdateController's states are `UpdateState` idle/available/downloading/installing/failed plus `ManualCheck` none/checking/upToDate/failed.
 - `SonosRemote/App/CardUserDriver.swift` — Sparkle's `SPUUserDriver`, translates Sparkle's callbacks into `UpdateController` state instead of showing Sparkle's own UI.
 - `SonosRemote/App/SparkleUpdater.swift` — owns the `SPUUpdater`; nil under XCTest and when Sparkle fails to start (logged, card never appears).
 

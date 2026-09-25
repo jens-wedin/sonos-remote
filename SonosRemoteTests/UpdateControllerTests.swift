@@ -39,12 +39,16 @@ final class Recorder {
 
     func make(
         legacyEnabled: Bool? = nil,
+        legacyDismissedVersion: String? = nil,
+        legacyLastCheck: Date? = nil,
         checkTimeout: Duration = .seconds(60),
         pollInterval: Duration = .milliseconds(100),
         resultDisplay: Duration = .seconds(60)
     ) -> Harness {
         let defaults = UserDefaults(suiteName: "UpdateControllerTests-\(UUID())")!
         if let legacyEnabled { defaults.set(legacyEnabled, forKey: UpdateController.legacyEnabledKey) }
+        if let legacyDismissedVersion { defaults.set(legacyDismissedVersion, forKey: UpdateController.legacyDismissedVersionKey) }
+        if let legacyLastCheck { defaults.set(legacyLastCheck, forKey: UpdateController.legacyLastCheckKey) }
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("UpdateControllerTests-\(UUID())"))
         let now = self.now
         let controller = UpdateController(
@@ -304,10 +308,12 @@ final class Recorder {
     }
 
     @Test func aUserWhoTurnedChecksOffBeforeSparkleStaysOptedOut() {
-        let h = make(legacyEnabled: false)
+        let h = make(legacyEnabled: false, legacyDismissedVersion: "0.2.3", legacyLastCheck: now)
         #expect(h.controller.isEnabled == false)
         #expect(h.updater.automaticallyChecksForUpdates == false)
         #expect(h.defaults.object(forKey: UpdateController.legacyEnabledKey) == nil, "migrated once, then forgotten")
+        #expect(h.defaults.object(forKey: UpdateController.legacyDismissedVersionKey) == nil, "old checker's leftover key removed")
+        #expect(h.defaults.object(forKey: UpdateController.legacyLastCheckKey) == nil, "old checker's leftover key removed")
     }
 
     @Test func panelOpenChecksOnlyWhenTheLastCheckIsADayOld() {

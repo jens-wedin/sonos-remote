@@ -48,6 +48,9 @@ enum ManualCheck: Equatable, Sendable { case none, checking, upToDate, failed }
 final class UpdateController {
     /// Written by 0.2.2–0.2.4 when the user switched update checks off; migrated once into Sparkle's setting.
     static let legacyEnabledKey = "updateCheckEnabled"
+    /// Leftover keys from the old checker (0.2.2–0.2.4); no longer read, just cleared on attach.
+    static let legacyDismissedVersionKey = "dismissedUpdateVersion"
+    static let legacyLastCheckKey = "lastUpdateCheck"
     private static let checkInterval: TimeInterval = 86_400
 
     let brewCommand = "brew update && brew upgrade --cask remote-for-sonos"
@@ -149,6 +152,8 @@ final class UpdateController {
             updater.automaticallyChecksForUpdates = false
         }
         defaults.removeObject(forKey: Self.legacyEnabledKey)
+        defaults.removeObject(forKey: Self.legacyDismissedVersionKey)
+        defaults.removeObject(forKey: Self.legacyLastCheckKey)
         isEnabled = updater.automaticallyChecksForUpdates
     }
 

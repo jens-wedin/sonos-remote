@@ -82,11 +82,15 @@ struct SettingsScreen: View {
                     VStack(alignment: .trailing, spacing: 4) {
                         Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
                         if updates.canInstall {
+                            let updateVersion = updates.state.version ?? updates.latestKnown
                             Button("Update now") { updates.install() }
                                 .buttonStyle(.plain)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Color.link)
                                 .focusable()
+                                .accessibilityLabel(
+                                    updateVersion.map { Text(verbatim: "Update now to version \($0)") } ?? Text("Update now")
+                                )
                         } else {
                             manualCheckRow
                         }

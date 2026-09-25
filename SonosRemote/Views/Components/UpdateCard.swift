@@ -16,8 +16,14 @@ struct UpdateCard: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: title)
-                        .font(.callout.weight(.semibold))
+                    Group {
+                        if let failureMessage {
+                            Text(verbatim: title).help(failureMessage)
+                        } else {
+                            Text(verbatim: title)
+                        }
+                    }
+                    .font(.callout.weight(.semibold))
                     detail
                         .font(.caption.weight(.medium))
                 }
@@ -36,6 +42,12 @@ struct UpdateCard: View {
 
     private var isFailure: Bool {
         if case .failed = updates.state { true } else { false }
+    }
+
+    /// The controller's failure message, surfaced to sighted users via `.help` and to VoiceOver via
+    /// the failed content's accessibility value. The visible copy stays "Update failed" regardless.
+    private var failureMessage: String? {
+        if case .failed(_, let message) = updates.state { message } else { nil }
     }
 
     private var title: String {
@@ -76,7 +88,7 @@ struct UpdateCard: View {
                     .foregroundStyle(Color.supporting)
                 progress(nil)
             }
-        case .failed:
+        case .failed(_, let message):
             HStack(spacing: 6) {
                 Button("Try again") { updates.retry() }
                     .buttonStyle(.plain)
@@ -87,6 +99,7 @@ struct UpdateCard: View {
                     .foregroundStyle(Color.link)
                     .help("Copies the Homebrew upgrade command; paste it in Terminal")
             }
+            .accessibilityValue(Text(verbatim: message))
         case .idle:
             EmptyView()
         }
