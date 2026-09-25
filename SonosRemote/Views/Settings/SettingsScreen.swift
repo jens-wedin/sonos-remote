@@ -5,7 +5,7 @@ import KeyboardShortcuts
 
 struct SettingsScreen: View {
     @Environment(AppState.self) private var state
-    @Environment(UpdateChecker.self) private var updates
+    @Environment(UpdateController.self) private var updates
     @State private var launchAtLogin = false
     @State private var loginError: String?
 
@@ -73,17 +73,20 @@ struct SettingsScreen: View {
                 CardRow(isFirst: true) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Version").font(.callout)
-                        if let release = updates.latestKnown {
-                            Text(verbatim: "Update available: \(release.version)")
+                        if let version = updates.latestKnown {
+                            Text(verbatim: "Update available: \(version)")
                                 .font(.caption).foregroundStyle(Color.supporting)
                         }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
                         Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
-                        if updates.latestKnown != nil {
-                            CopyCommandButton(onCopy: { updates.copyCommand() })
-                                .foregroundStyle(Color.primary)
+                        if updates.canInstall {
+                            Button("Update now") { updates.install() }
+                                .buttonStyle(.plain)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.link)
+                                .focusable()
                         }
                     }
                 }
@@ -99,6 +102,24 @@ struct SettingsScreen: View {
                     .foregroundStyle(.primary)
                     .focusable()
                     .accessibilityLabel("Releases on GitHub")
+                }
+                CardRow {
+                    Button {
+                        if let url = Bundle.main.url(forResource: "Acknowledgements", withExtension: "txt") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        HStack {
+                            Text("Acknowledgements").font(.callout)
+                            Spacer()
+                            Image(systemName: "doc.text").font(.caption).foregroundStyle(Color.supporting)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.primary)
+                    .focusable()
+                    .accessibilityLabel("Open acknowledgements")
                 }
             }
         }

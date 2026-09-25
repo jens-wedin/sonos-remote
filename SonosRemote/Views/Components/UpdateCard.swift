@@ -1,66 +1,138 @@
 import SwiftUI
 
-/// "Update available" notice at the top of the main screen: version, then "Update via Homebrew · What's new",
-/// and a dismiss button. "Update via Homebrew" copies the upgrade command for Terminal.
+/// The update notice at the top of the main screen. Offers an update ("Update now · What's new"),
+/// then shows download and install progress in place until Sparkle relaunches the app.
 struct UpdateCard: View {
-    let release: ReleaseInfo
-    let onCopy: () -> Void
-    let onDismiss: () -> Void
-
-    @Environment(AppState.self) private var state
-    @Environment(UpdateChecker.self) private var updates
+    @Environment(AppState.self) private var appState
+    @Environment(UpdateController.self) private var updates
 
     var body: some View {
         Card {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "arrow.down")
+                Image(systemName: isFailure ? "exclamationmark.triangle" : "arrow.down")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(width: 32, height: 32)
                     .background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: "Update available — v\(release.version)")
+                    Text(verbatim: title)
                         .font(.callout.weight(.semibold))
-                    HStack(spacing: 6) {
-                        CopyCommandButton(title: "Update via Homebrew", showsIcon: false, onCopy: onCopy)
-                            .foregroundStyle(Color.link)
-                            .help("Copies the Homebrew upgrade command; paste it in Terminal")
-                        Text(verbatim: "·")
-                            .foregroundStyle(Color.supporting)
-                            .accessibilityHidden(true)
-                        Link("What's new", destination: release.notesURL)
-                            .foregroundStyle(Color.link)
-                            .focusable()
-                            .accessibilityLabel(Text(verbatim: "Show what's new in v\(release.version)"))
-                    }
-                    .font(.caption.weight(.medium))
+                    detail
+                        .font(.caption.weight(.medium))
                 }
 
                 Spacer(minLength: 0)
 
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.supporting)
-                .focusable()
-                .accessibilityLabel("Dismiss update notice")
+                closeButton
             }
             .padding(12)
         }
         .padding(.top, 12)
         .accessibilityElement(children: .contain)
-        .onAppear(perform: announceOnce)
-        .onChange(of: release.version) { announceOnce() }
+        .onAppear(perform: announceOffer)
+        .onChange(of: updates.state) { announceOffer() }
     }
 
-    private func announceOnce() {
-        guard updates.shouldAnnounce(release.version) else { return }
-        state.announce("Update available, version \(release.version)")
+    private var isFailure: Bool {
+        if case .failed = updates.state { true } else { false }
+    }
+
+    private var title: String {
+        switch updates.state {
+        case .available(let version, _): "Update available — v\(version)"
+        case .downloading(let version, _), .installing(let version): "Updating to v\(version)"
+        case .failed: "Update failed"
+        case .idle: ""
+        }
+    }
+
+    @ViewBuilder private var detail: some View {
+        switch updates.state {
+        case .available(let version, let notesURL):
+            HStack(spacing: 6) {
+                Button("Update now") { updates.install() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.link)
+                    .focusable()
+                    .accessibilityLabel(Text(verbatim: "Update now to version \(version)"))
+                if let notesURL {
+                    separator
+                    Link("What's new", destination: notesURL)
+                        .foregroundStyle(Color.link)
+                        .focusable()
+                        .accessibilityLabel(Text(verbatim: "Show what's new in v\(version)"))
+                }
+            }
+        case .downloading(_, let fraction):
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: fraction.map { "Downloading… \(Int(($0 * 100).rounded()))%" } ?? "Downloading…")
+                    .foregroundStyle(Color.supporting)
+                progress(fraction)
+            }
+        case .installing:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: "Installing…")
+                    .foregroundStyle(Color.supporting)
+                progress(nil)
+            }
+        case .failed:
+            HStack(spacing: 6) {
+                Button("Try again") { updates.retry() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.link)
+                    .focusable()
+                separator
+                CopyCommandButton(title: "Update via Homebrew", showsIcon: false, onCopy: { updates.copyCommand() })
+                    .foregroundStyle(Color.link)
+                    .help("Copies the Homebrew upgrade command; paste it in Terminal")
+            }
+        case .idle:
+            EmptyView()
+        }
+    }
+
+    private var separator: some View {
+        Text(verbatim: "·")
+            .foregroundStyle(Color.supporting)
+            .accessibilityHidden(true)
+    }
+
+    /// Determinate once Sparkle knows the download's length, indeterminate otherwise.
+    private func progress(_ fraction: Double?) -> some View {
+        SwiftUI.Group {
+            if let fraction { ProgressView(value: fraction) } else { ProgressView() }
+        }
+        .progressViewStyle(.linear)
+        .controlSize(.small)
+        .accessibilityLabel("Update progress")
+    }
+
+    @ViewBuilder private var closeButton: some View {
+        switch updates.state {
+        case .available: dismissButton("Skip this version") { updates.skip() }
+        case .failed: dismissButton("Dismiss update error") { updates.dismissFailure() }
+        case .idle, .downloading, .installing: EmptyView()
+        }
+    }
+
+    private func dismissButton(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.supporting)
+        .focusable()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// "Update available" is announced once per version per session; the steps after a click are announced by the controller.
+    private func announceOffer() {
+        guard case .available(let version, _) = updates.state, updates.shouldAnnounce(version) else { return }
+        appState.announce("Update available, version \(version)")
     }
 }
 

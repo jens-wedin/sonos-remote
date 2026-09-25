@@ -5,7 +5,7 @@ import SonosKit
 struct PanelShellView: View {
     @Environment(AppState.self) private var state
     @Environment(PanelController.self) private var panel
-    @Environment(UpdateChecker.self) private var updates
+    @Environment(UpdateController.self) private var updates
     let closePanel: () -> Void
 
     @State private var bodyHeight: CGFloat = 0
