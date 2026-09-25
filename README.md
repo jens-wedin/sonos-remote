@@ -67,3 +67,7 @@ Before tagging a release, also run through `knowledge/procedural/manual-test-che
 Debug builds are signed **manually** with the owner's Apple Development identity, not ad-hoc — an ad-hoc signature changes on every rebuild, which invalidates macOS's Local Network permission grant each time. Release builds are signed with `Developer ID Application`, use the hardened runtime, and are notarized. Both are configured in `project.yml`; the team is FDBYWW84AR. See `knowledge/procedural/build-and-run.md` for the team-ID gotcha.
 
 Releases are cut with `scripts/release.sh <version>`, which archives, signs, notarizes, staples, zips, publishes a GitHub Release (creating the `v<version>` tag), and updates the Homebrew cask in `jens-wedin/homebrew-tap`. The one-time setup and the full procedure are in `knowledge/procedural/release.md`.
+
+## Credits
+
+Includes [Sparkle](https://sparkle-project.org) (MIT); see Settings → Acknowledgements.
