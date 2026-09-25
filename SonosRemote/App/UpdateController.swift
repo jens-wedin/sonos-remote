@@ -29,6 +29,8 @@ enum UpdateState: Equatable, Sendable {
 @MainActor protocol Updating: AnyObject {
     var automaticallyChecksForUpdates: Bool { get set }
     var lastUpdateCheckDate: Date? { get }
+    /// False while Sparkle is still finishing another session; a `checkForUpdates()` made now would be dropped.
+    var canCheckForUpdates: Bool { get }
     /// User-initiated: shows an update even if its version was skipped.
     func checkForUpdates()
     func checkForUpdatesInBackground()
@@ -83,10 +85,16 @@ final class UpdateController {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let pasteboard: NSPasteboard
     @ObservationIgnored private let now: () -> Date
+    /// How long "Update now"/"Try again" waits for Sparkle to call back after being asked to check.
+    @ObservationIgnored private let checkTimeout: Duration
     @ObservationIgnored private var pendingReply: ((UpdateChoice) -> Void)?
     @ObservationIgnored private var pendingAcknowledgement: (() -> Void)?
     /// Set when "Update now" or "Try again" had to ask Sparkle first: the next offer installs without another click.
     @ObservationIgnored private var installWhenFound = false
+    /// Set when Sparkle couldn't be asked to check because it was still finishing another session; asked again once that session ends.
+    @ObservationIgnored private var checkWhenSessionEnds = false
+    /// Guards against a silently stuck card: fires if Sparkle never calls back after `install()`/`retry()` asked it to check.
+    @ObservationIgnored private var watchdogTask: Task<Void, Never>?
     @ObservationIgnored private var expectedLength: UInt64 = 0
     @ObservationIgnored private var receivedLength: UInt64 = 0
     /// Step announcements already made in the current attempt ("Downloading update", …).
@@ -94,10 +102,16 @@ final class UpdateController {
     /// Versions VoiceOver has already been told about this session.
     @ObservationIgnored private var announcedVersions: Set<String> = []
 
-    init(defaults: UserDefaults = .standard, pasteboard: NSPasteboard = .general, now: @escaping () -> Date = Date.init) {
+    init(
+        defaults: UserDefaults = .standard,
+        pasteboard: NSPasteboard = .general,
+        now: @escaping () -> Date = Date.init,
+        checkTimeout: Duration = .seconds(30)
+    ) {
         self.defaults = defaults
         self.pasteboard = pasteboard
         self.now = now
+        self.checkTimeout = checkTimeout
     }
 
     /// Connects the updater (kept alive here) and adopts its "check automatically" setting.
@@ -124,7 +138,7 @@ final class UpdateController {
             guard let version = latestKnown, let updater else { return }
             installWhenFound = true
             beginDownload(version)
-            updater.checkForUpdates()
+            requestCheck(from: updater, for: version)
         case .downloading, .installing, .failed:
             return
         }
@@ -147,7 +161,7 @@ final class UpdateController {
         installWhenFound = true
         beginDownload(version)
         acknowledge?()
-        updater.checkForUpdates()
+        requestCheck(from: updater, for: version)
     }
 
     /// ✕ on a failure.
@@ -180,7 +194,7 @@ final class UpdateController {
     func updateFound(version: String, notesURL: URL?, stage: UpdateStage, reply: @escaping (UpdateChoice) -> Void) {
         latestKnown = version
         if stage == .installing || installWhenFound {
-            installWhenFound = false
+            resolveWait()
             pendingReply = nil
             if stage == .installing { enterInstalling(version) } else { state = .downloading(version: version, fraction: nil) }
             reply(.install)
@@ -211,9 +225,15 @@ final class UpdateController {
         if let version = runningVersion { enterInstalling(version) }
     }
 
-    /// The user already chose to update, so install and relaunch without asking again.
+    /// The user already chose to update, so install and relaunch without asking again — but only while an
+    /// update the user started is actually running. "Never silent" must not depend on Sparkle's call order,
+    /// so this declines rather than installing something nobody has seen.
     func readyToInstall(reply: @escaping (UpdateChoice) -> Void) {
-        if let version = runningVersion { enterInstalling(version) }
+        guard let version = runningVersion else {
+            reply(.dismiss)
+            return
+        }
+        enterInstalling(version)
         reply(.install)
     }
 
@@ -223,7 +243,8 @@ final class UpdateController {
 
     /// Shown only while an update the user started is running; anything else (a failed background check) stays silent.
     func failed(message: String, acknowledgement: @escaping () -> Void) {
-        installWhenFound = false
+        resolveWait()
+        // Sparkle has abandoned this session; its reply block is no longer valid to call.
         pendingReply = nil
         switch state {
         case .downloading(let version, _), .installing(let version):
@@ -241,17 +262,26 @@ final class UpdateController {
     func notFound(acknowledgement: @escaping () -> Void) {
         acknowledgement()
         guard installWhenFound else { return }
-        installWhenFound = false
+        resolveWait()
         state = .idle
+        // The feed no longer offers this version.
+        latestKnown = nil
     }
 
     /// Sparkle ended its session. A failure stays until the user dismisses it; "Installing…" stays until the app quits.
     func dismissed() {
+        // install()/retry() couldn't ask Sparkle to check because it was still finishing this very session;
+        // now that it has ended, ask again. If Sparkle still can't check, the watchdog resolves it.
+        if checkWhenSessionEnds, updater?.canCheckForUpdates == true {
+            checkWhenSessionEnds = false
+            updater?.checkForUpdates()
+        }
         guard !installWhenFound else { return }
         switch state {
         case .failed, .installing, .idle:
             return
         case .available:
+            // Sparkle has abandoned this session; its reply block is no longer valid to call.
             pendingReply = nil
             state = .idle
         case .downloading:
@@ -290,5 +320,45 @@ final class UpdateController {
     private func announceStep(_ message: String) {
         guard announcedSteps.insert(message).inserted else { return }
         announce(message)
+    }
+
+    /// Asks Sparkle to check now, unless it's still finishing another session — then `dismissed()` asks again
+    /// once that session ends. Either way, a watchdog guards against Sparkle never calling back at all.
+    private func requestCheck(from updater: any Updating, for version: String) {
+        if updater.canCheckForUpdates {
+            updater.checkForUpdates()
+        } else {
+            checkWhenSessionEnds = true
+        }
+        startWatchdog(for: version)
+    }
+
+    private func startWatchdog(for version: String) {
+        watchdogTask?.cancel()
+        let timeout = checkTimeout
+        watchdogTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard let self, !Task.isCancelled else { return }
+            self.checkTimedOut(version: version)
+        }
+    }
+
+    /// Fires only if nothing (`updateFound`, `notFound`, `failed`) has answered the check by now: never leave
+    /// the card silently showing "Downloading…" for a check Sparkle never actually started.
+    private func checkTimedOut(version: String) {
+        guard installWhenFound, state.version == version else { return }
+        watchdogTask = nil
+        checkWhenSessionEnds = false
+        installWhenFound = false
+        state = .failed(version: version, message: "The update check did not start.")
+        announceStep("Update failed")
+    }
+
+    /// Clears everything `install()`/`retry()` set up while waiting for Sparkle: an answer has arrived.
+    private func resolveWait() {
+        installWhenFound = false
+        checkWhenSessionEnds = false
+        watchdogTask?.cancel()
+        watchdogTask = nil
     }
 }

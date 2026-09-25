@@ -7,6 +7,7 @@ import Testing
 final class FakeUpdater: Updating {
     var automaticallyChecksForUpdates = true
     var lastUpdateCheckDate: Date?
+    var canCheckForUpdates = true
     private(set) var userChecks = 0
     private(set) var backgroundChecks = 0
     func checkForUpdates() { userChecks += 1 }
@@ -36,12 +37,12 @@ final class Recorder {
         let pasteboard: NSPasteboard
     }
 
-    func make(legacyEnabled: Bool? = nil) -> Harness {
+    func make(legacyEnabled: Bool? = nil, checkTimeout: Duration = .seconds(60)) -> Harness {
         let defaults = UserDefaults(suiteName: "UpdateControllerTests-\(UUID())")!
         if let legacyEnabled { defaults.set(legacyEnabled, forKey: UpdateController.legacyEnabledKey) }
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("UpdateControllerTests-\(UUID())"))
         let now = self.now
-        let controller = UpdateController(defaults: defaults, pasteboard: pasteboard, now: { now })
+        let controller = UpdateController(defaults: defaults, pasteboard: pasteboard, now: { now }, checkTimeout: checkTimeout)
         let recorder = Recorder()
         controller.announce = { recorder.spoken.append($0) }
         let updater = FakeUpdater()
@@ -131,6 +132,83 @@ final class Recorder {
         h.controller.notFound(acknowledgement: h.recorder.acknowledge)
         #expect(h.controller.state == .idle)
         #expect(h.recorder.acknowledgements == 2)
+        #expect(h.controller.latestKnown == nil, "the feed no longer offers this version")
+        #expect(!h.controller.canInstall)
+    }
+
+    @Test func readyToInstallWhileIdleDeclinesRatherThanInstallingSilently() {
+        let h = make()
+        h.controller.readyToInstall(reply: h.recorder.reply)
+        #expect(h.recorder.choices == [.dismiss])
+        #expect(h.controller.state == .idle)
+    }
+
+    @Test func aFailureWhileAnOfferIsShowingReturnsToIdleWithoutCallingTheReply() {
+        let h = make()
+        offer(h)
+        h.controller.failed(message: "The feed could not be loaded.", acknowledgement: h.recorder.acknowledge)
+        #expect(h.controller.state == .idle)
+        #expect(h.recorder.acknowledgements == 1)
+        #expect(h.recorder.choices.isEmpty, "the offer's reply must not be called once Sparkle has abandoned it")
+    }
+
+    @Test func aSecondOfferDismissesTheFirstsPendingReply() {
+        let h = make()
+        let firstReply = Recorder()
+        h.controller.updateFound(version: "0.2.5", notesURL: notes, stage: .notDownloaded, reply: firstReply.reply)
+        let secondReply = Recorder()
+        h.controller.updateFound(version: "0.2.6", notesURL: notes, stage: .notDownloaded, reply: secondReply.reply)
+        #expect(firstReply.choices == [.dismiss])
+        #expect(secondReply.choices.isEmpty)
+        #expect(h.controller.state == .available(version: "0.2.6", notesURL: notes))
+    }
+
+    @Test func updateFailedIsAnnouncedAgainAfterARetryAlsoFails() {
+        let h = make()
+        offer(h)
+        h.controller.install()
+        h.controller.failed(message: "first", acknowledgement: h.recorder.acknowledge)
+        h.controller.retry()
+        h.controller.failed(message: "second", acknowledgement: h.recorder.acknowledge)
+        #expect(h.recorder.spoken.filter { $0 == "Update failed" }.count == 2)
+    }
+
+    @Test func aCheckThatCannotStartYetRunsWhenTheOldSessionEnds() {
+        let h = make(checkTimeout: .milliseconds(50))
+        offer(h)
+        h.controller.skip()
+        h.updater.canCheckForUpdates = false
+        h.controller.install()
+        #expect(h.updater.userChecks == 0, "Sparkle is still finishing another session")
+        h.updater.canCheckForUpdates = true
+        h.controller.dismissed()
+        #expect(h.updater.userChecks == 1, "asked again once the old session ended")
+        offer(h)
+        #expect(h.recorder.choices == [.skip, .install])
+    }
+
+    @Test func aCheckThatSparkleNeverStartsFailsAfterTheWatchdog() async throws {
+        let h = make(checkTimeout: .milliseconds(50))
+        offer(h)
+        h.controller.skip()
+        h.controller.install()
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.controller.state == .failed(version: "0.2.5", message: "The update check did not start."))
+        #expect(h.recorder.spoken.last == "Update failed")
+        let checksBeforeRetry = h.updater.userChecks
+        h.controller.retry()
+        #expect(h.updater.userChecks == checksBeforeRetry + 1)
+    }
+
+    @Test func anAnswerBeforeTheWatchdogFiresPreventsTheFailure() async throws {
+        let h = make(checkTimeout: .milliseconds(50))
+        offer(h)
+        h.controller.skip()
+        h.controller.install()
+        offer(h)
+        #expect(h.controller.state == .downloading(version: "0.2.5", fraction: nil))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.controller.state == .downloading(version: "0.2.5", fraction: nil), "the watchdog must not fire once Sparkle has answered")
     }
 
     @Test func dismissingAFailureAcknowledgesItAndHidesTheCard() {
