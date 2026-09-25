@@ -14,6 +14,9 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     exactVersion: 3.0.1
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -46,6 +49,9 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     info:
       path: SonosRemote/Info.plist
       properties:
@@ -62,14 +68,30 @@ targets:
           - _sonos._tcp
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        SUFeedURL: https://github.com/jens-wedin/sonos-remote/releases/latest/download/appcast.xml
+        SUPublicEDKey: pxnmYayx/gtqoXrOa6kIaUD3OOmVSgY1G7yZom65BD0=
+        SUEnableInstallerLauncherService: true
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
     dependencies:
       - package: SonosKit
       - package: MenuBarExtraAccess
       - package: KeyboardShortcuts
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jenswedin.SonosRemote
         GENERATE_INFOPLIST_FILE: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postBuildScripts:
+      - name: Strip Sparkle Downloader service
+        basedOnDependencyAnalysis: false
+        script: |
+          # The app already has network access, so Sparkle's downloader XPC service is unused.
+          [ "$ACTION" = "install" ] || exit 0
+          FW="${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Frameworks/Sparkle.framework"
+          rm -rf "$FW/Versions/B/XPCServices/Downloader.xpc"
+          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --preserve-metadata "$FW"
   SonosRemoteTests:
     type: bundle.unit-test
     platform: macOS
