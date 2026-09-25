@@ -91,7 +91,7 @@ targets:
           [ "$ACTION" = "install" ] || exit 0
           FW="${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Frameworks/Sparkle.framework"
           rm -rf "$FW/Versions/B/XPCServices/Downloader.xpc"
-          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --preserve-metadata "$FW"
+          codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --timestamp --options runtime --preserve-metadata=identifier,entitlements,requirements,flags,runtime "$FW"
   SonosRemoteTests:
     type: bundle.unit-test
     platform: macOS
