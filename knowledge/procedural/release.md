@@ -44,6 +44,10 @@ Releases are built on the owner's Mac by `scripts/release.sh`, signed with a Dev
 
 Preflight treats untracked files as a dirty tree (`git status --porcelain`), so commit or locally exclude stray files (for example design files under `knowledge/design/`) before running the script.
 
+## Rehearse before a release that changes updating
+
+Any release that touches `UpdateController`, the Sparkle feed, the entitlements, or the signing/notarization steps in `scripts/release.sh` needs a rehearsal against that release's own build before it ships — not just the automated tests. Follow manual test checklist item 14 (`manual-test-checklist.md`): it builds the real, notarized release with a local feed, points a Debug copy at it, and walks the happy path, the failure-and-retry path, skip, and Settings' "Check now", so the one-click installer is proven end to end while it's still cheap to fix.
+
 ## Rehearsing without credentials
 
 `scripts/release.sh X.Y.Z --skip-notarize --identity "Apple Development: hello@jenswedin.com (4B85FPKBH8)"` exercises archive, signing, and packaging with the development certificate and stops before notarization and publishing. Never distribute such a build.
