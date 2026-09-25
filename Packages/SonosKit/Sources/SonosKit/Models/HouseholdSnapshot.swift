@@ -15,6 +15,8 @@ public struct HouseholdSnapshot: Sendable, Hashable {
     public var favorites: [Favorite]
     public var playerVolumes: [String: Volume]
     public var softwareVersion: String?
+    /// Players whose certificate the app rejected: it will not talk to them, so their rooms show no playback.
+    public var untrustedPlayerIDs: Set<String> = []
 
     public init(status: HouseholdStatus = .discovering, groups: [Group] = [], players: [Player] = [], favorites: [Favorite] = [], playerVolumes: [String: Volume] = [:], softwareVersion: String? = nil) {
         self.status = status

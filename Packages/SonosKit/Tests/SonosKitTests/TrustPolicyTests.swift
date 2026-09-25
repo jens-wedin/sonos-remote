@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import SonosKit
 
@@ -133,6 +134,30 @@ import Testing
         second.allow(host: "192.168.1.10")
         #expect(second.decision(host: "192.168.1.10", port: 1443, keyHash: keyB) == .reject, "the persisted pin survives a relaunch")
         #expect(second.decision(host: "192.168.1.10", port: 1443, keyHash: keyA) == .accept)
+    }
+
+    @Test func rejectionsAreReportedByPlayerAndClearedByAnAcceptedKey() async throws {
+        let store = TrustStore()
+        let seen = Mutex<[Set<String>]>([])
+        let stream = store.rejectedPlayers()
+        let reader = Task { for await ids in stream { seen.withLock { $0.append(ids) } } }
+        defer { reader.cancel() }
+        store.allow(host: "192.168.1.10", playerID: "RINCON_347E5C04E98101400")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: "48A6B8194D2A")
+        try await waitUntil { seen.withLock { $0.last } == ["RINCON_347E5C04E98101400"] }
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        try await waitUntil { seen.withLock { $0.last } == [] }
+    }
+
+    @Test func revokeClearsARejection() {
+        let store = TrustStore()
+        store.allow(host: "192.168.1.10", playerID: "RINCON_347E5C04E98101400")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        _ = store.decision(host: "192.168.1.10", port: 1443, keyHash: keyB, commonName: nil)
+        #expect(store.currentRejectedPlayers == ["RINCON_347E5C04E98101400"])
+        store.revoke(host: "192.168.1.10")
+        #expect(store.currentRejectedPlayers == [])
     }
 }
 

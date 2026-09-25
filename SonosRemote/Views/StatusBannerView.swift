@@ -5,6 +5,20 @@ struct StatusBannerView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
+        statusBanner
+        if !state.untrustedRoomNames.isEmpty {
+            let rooms = AppState.joined(state.untrustedRoomNames)
+            Banner(color: .yellow) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: "Can't verify \(rooms)").font(.callout.weight(.semibold))
+                    Text(verbatim: "Its security certificate changed unexpectedly, so the app won't connect to it and playback there is unavailable. If this persists, restart the speaker.")
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var statusBanner: some View {
         switch state.status {
         case .ready:
             EmptyView()

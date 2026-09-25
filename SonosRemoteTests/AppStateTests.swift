@@ -171,6 +171,30 @@ import SonosKit
         #expect(appState.announcements.last == "Connected to Sonos")
     }
 
+    @Test func untrustedPlayersBecomeNamedRoomsAndAreAnnouncedOnce() {
+        let appState = makeAppState()
+        let players = [
+            Player(id: "RINCON_B", name: "Stereo", address: "192.168.1.2", hasSub: false),
+            Player(id: "RINCON_A", name: "Kontor", address: "192.168.1.1", hasSub: false),
+        ]
+        var s = HouseholdSnapshot(status: .ready, groups: [group("a", .playing)], players: players)
+        appState.apply(s)
+        #expect(appState.untrustedRoomNames == [])
+
+        s.untrustedPlayerIDs = ["RINCON_B", "RINCON_A", "RINCON_GONE"]
+        appState.apply(s)
+        #expect(appState.untrustedRoomNames == ["Kontor", "Stereo"], "sorted names; an unknown player is left out")
+        #expect(appState.announcements.last == "Can't verify Kontor and Stereo")
+
+        let count = appState.announcements.count
+        appState.apply(s)
+        #expect(appState.announcements.count == count, "an unchanged set is not announced again")
+
+        s.untrustedPlayerIDs = []
+        appState.apply(s)
+        #expect(appState.untrustedRoomNames == [])
+    }
+
     @Test func applyPresetWritesBassAndTrebleAndKeepsLoudnessAndSub() {
         let appState = makeAppState()
         appState.eqByPlayer["p1"] = EQSettings(bass: 5, treble: -5, loudness: true, subGain: 4)

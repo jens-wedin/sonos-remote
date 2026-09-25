@@ -410,4 +410,15 @@ import Testing
         try await waitUntil { socket.sentText.contains { $0.contains("playback:1") && $0.contains("unsubscribe") } }
         await h.household.stop()
     }
+
+    @Test func aRejectedCertificateFlagsThePlayerInTheSnapshot() async throws {
+        let h = Harness()
+        let stream = await h.household.snapshots()
+        _ = try await h.startAndDiscover(stereo)
+        let keyA = Data(repeating: 1, count: 32), keyB = Data(repeating: 2, count: 32)
+        _ = h.trust.decision(host: stereo.address, port: 1443, keyHash: keyA, commonName: "347E5C04E981")
+        _ = h.trust.decision(host: stereo.address, port: 1443, keyHash: keyB, commonName: "48A6B8194D2A")
+        for await snapshot in stream where snapshot.untrustedPlayerIDs == [stereo.id] { return }
+        throw WaitTimeout()
+    }
 }

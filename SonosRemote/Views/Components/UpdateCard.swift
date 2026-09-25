@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// "Update available" notice at the top of the main screen: version, copy-the-brew-command, what's new, dismiss.
+/// "Update available" notice at the top of the main screen: version, then "Update via Homebrew · What's new",
+/// and a dismiss button. "Update via Homebrew" copies the upgrade command for Terminal.
 struct UpdateCard: View {
     let release: ReleaseInfo
     let onCopy: () -> Void
@@ -11,27 +12,29 @@ struct UpdateCard: View {
 
     var body: some View {
         Card {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "arrow.down")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 40, height: 40)
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 32, height: 32)
                     .background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: "Update available — v\(release.version)")
                         .font(.callout.weight(.semibold))
-                    HStack(spacing: 14) {
-                        CopyCommandButton(onCopy: onCopy)
-
-                        Link(destination: release.notesURL) {
-                            Label("What's new", systemImage: "arrow.up.right")
-                                .font(.caption.weight(.medium))
-                        }
-                        .foregroundStyle(Color.supporting)
-                        .focusable()
-                        .accessibilityLabel(Text(verbatim: "Show what's new in v\(release.version)"))
+                    HStack(spacing: 6) {
+                        CopyCommandButton(title: "Update via Homebrew", showsIcon: false, onCopy: onCopy)
+                            .foregroundStyle(Color.link)
+                            .help("Copies the Homebrew upgrade command; paste it in Terminal")
+                        Text(verbatim: "·")
+                            .foregroundStyle(Color.supporting)
+                            .accessibilityHidden(true)
+                        Link("What's new", destination: release.notesURL)
+                            .foregroundStyle(Color.link)
+                            .focusable()
+                            .accessibilityLabel(Text(verbatim: "Show what's new in v\(release.version)"))
                     }
+                    .font(.caption.weight(.medium))
                 }
 
                 Spacer(minLength: 0)
@@ -61,9 +64,11 @@ struct UpdateCard: View {
     }
 }
 
-/// "Copy Homebrew command" that reads "Copied" for two seconds after a click and announces it.
-/// Shared by the update card and the Settings version row.
+/// Copies the Homebrew command, reads "Copied" for two seconds after a click and announces it.
+/// Shared by the update card ("Update via Homebrew") and the Settings version row ("Copy Homebrew command").
 struct CopyCommandButton: View {
+    var title = "Copy Homebrew command"
+    var showsIcon = true
     let onCopy: () -> Void
 
     @Environment(AppState.self) private var state
@@ -78,13 +83,11 @@ struct CopyCommandButton: View {
         } label: {
             // The hidden long label reserves the width so the row does not shift while "Copied" shows.
             ZStack(alignment: .leading) {
-                Label("Copy Homebrew command", systemImage: "doc.on.doc").hidden()
-                Label(copied ? "Copied" : "Copy Homebrew command", systemImage: copied ? "checkmark" : "doc.on.doc")
+                label(title, icon: "doc.on.doc").hidden()
+                label(copied ? "Copied" : title, icon: copied ? "checkmark" : "doc.on.doc")
             }
-            .font(.caption.weight(.semibold))
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color.primary)
         .focusable()
         .accessibilityLabel("Copy Homebrew upgrade command")
         .task(id: clicks) {
@@ -100,6 +103,14 @@ struct CopyCommandButton: View {
         .onDisappear {
             clicks = 0
             copied = false
+        }
+    }
+
+    @ViewBuilder private func label(_ text: String, icon: String) -> some View {
+        if showsIcon {
+            Label(text, systemImage: icon).font(.caption.weight(.semibold))
+        } else {
+            Text(verbatim: text)
         }
     }
 }

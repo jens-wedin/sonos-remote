@@ -4,6 +4,12 @@ All notable changes to this project are documented here. Format follows Keep a C
 
 ## [Unreleased]
 
+### Added
+- A yellow "Can't verify <room>" banner (and a VoiceOver announcement) when a speaker's certificate is rejected, instead of the room silently showing no music.
+
+### Changed
+- The update card is more compact: "Update available — vX.Y.Z" with "Update via Homebrew · What's new" underneath. "Update via Homebrew" copies the upgrade command.
+
 ## [0.2.3] - 2026-09-25
 
 ### Fixed

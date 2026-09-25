@@ -15,6 +15,8 @@ extension Color {
     static let supporting = Color.primary.opacity(0.72)
     /// The faintest readable tier (album line, footer). Primary at 60% ≈ 4.6:1 on white.
     static let faint = Color.primary.opacity(0.60)
+    /// Link text (the update card's actions) that clears 4.5:1 on both grounds: ≈ 6.2:1 on white, ≈ 8.8:1 on black.
+    static let link = Color(light: Color(red: 0.0, green: 0.36, blue: 0.80), dark: Color(red: 0.45, green: 0.66, blue: 1.0))
     /// Error text that clears 4.5:1 on both grounds.
     static let errorText = Color(light: Color(red: 0.72, green: 0.13, blue: 0.11), dark: Color(red: 1.0, green: 0.56, blue: 0.51))
 

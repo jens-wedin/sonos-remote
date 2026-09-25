@@ -47,6 +47,8 @@ public actor Household {
     /// reports the player `.found` again.
     private var removedPlayers: Set<String> = []
     private var discoveryTask: Task<Void, Never>?
+    /// Mirrors the trust store's rejected players into the snapshot.
+    private var trustTask: Task<Void, Never>?
     private var timeoutTask: Task<Void, Never>?
     /// Retries the initial (and any post-`.noPlayersFound`) topology fetch until it succeeds,
     /// is unauthorized, or is cancelled. Once `.ready`, later failures are covered by the
@@ -91,10 +93,19 @@ public actor Household {
             }
         }
         armDiscoveryTimeout()
+        if let trustStore {
+            trustTask = Task { [weak self] in
+                for await ids in trustStore.rejectedPlayers() {
+                    await self?.apply(.untrustedPlayers(ids))
+                }
+            }
+        }
     }
 
     public func stop() {
         discoveryTask?.cancel()
+        trustTask?.cancel()
+        trustTask = nil
         timeoutTask?.cancel()
         bootstrapTask?.cancel()
         bootstrapTask = nil

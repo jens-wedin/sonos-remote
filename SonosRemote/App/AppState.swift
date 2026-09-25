@@ -19,6 +19,9 @@ final class AppState {
     private(set) var players: [Player] = []
     private(set) var favorites: [Favorite] = []
     private(set) var softwareVersion: String?
+    /// Rooms whose speaker certificate was rejected, by name, sorted. The app won't talk to them.
+    private(set) var untrustedRoomNames: [String] = []
+    private var untrustedPlayerIDs: Set<String> = []
 
     /// Groups for display: the ones playing (or about to) first, then the rest, each tier by name.
     /// Stored, recomputed only when `groups` changes, so a render never sorts.
@@ -101,6 +104,8 @@ final class AppState {
         players = []
         favorites = []
         softwareVersion = nil
+        untrustedRoomNames = []
+        untrustedPlayerIDs = []
         rowErrors = [:]
         updateTicking()
         start()
@@ -123,6 +128,7 @@ final class AppState {
         if players != snapshot.players { players = snapshot.players }
         if favorites != snapshot.favorites { favorites = snapshot.favorites }
         if softwareVersion != snapshot.softwareVersion { softwareVersion = snapshot.softwareVersion }
+        applyUntrusted(snapshot.untrustedPlayerIDs)
         guard !groups.isEmpty else { updateTicking(); return }
         let stillExists = selectedGroupID.map { id in groups.contains { $0.id == id } } ?? false
         if !stillExists || !resolvedInitialSelection {
@@ -253,6 +259,21 @@ final class AppState {
         eq.treble = 0
         if eq.subGain != nil { eq.subGain = 0 }
         updateEQ(eq, player: player)
+    }
+
+    /// Names the rejected players (they are listed in `players` by then) and announces newly affected rooms.
+    private func applyUntrusted(_ ids: Set<String>) {
+        let names = players.filter { ids.contains($0.id) }.map(\.name).sorted()
+        let added = ids.subtracting(untrustedPlayerIDs)
+        untrustedPlayerIDs = ids
+        if untrustedRoomNames != names { untrustedRoomNames = names }
+        if !added.isEmpty, !names.isEmpty { announce("Can't verify \(Self.joined(names))") }
+    }
+
+    /// "A", "A and B", "A, B and C".
+    static func joined(_ names: [String]) -> String {
+        guard let last = names.last else { return "" }
+        return names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " and " + last
     }
 
     // MARK: Accessibility

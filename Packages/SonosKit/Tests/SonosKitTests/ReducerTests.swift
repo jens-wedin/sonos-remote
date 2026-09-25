@@ -112,4 +112,10 @@ import Testing
         snapshot = SnapshotReducer.reduce(snapshot, try topology())
         #expect(snapshot.group(gid)?.progress.durationMillis == 5000)
     }
+
+    @Test func untrustedPlayersReplaceTheSet() {
+        let flagged = SnapshotReducer.reduce(HouseholdSnapshot(), .untrustedPlayers(["RINCON_A"]))
+        #expect(flagged.untrustedPlayerIDs == ["RINCON_A"])
+        #expect(SnapshotReducer.reduce(flagged, .untrustedPlayers([])).untrustedPlayerIDs == [])
+    }
 }

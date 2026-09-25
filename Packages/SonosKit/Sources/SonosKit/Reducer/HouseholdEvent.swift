@@ -12,4 +12,5 @@ enum HouseholdEvent: Hashable, Sendable {
     case favorites([Favorite])
     case playerHasSub(playerID: String, hasSub: Bool)
     case playerRemoved(playerID: String)
+    case untrustedPlayers(Set<String>)
 }

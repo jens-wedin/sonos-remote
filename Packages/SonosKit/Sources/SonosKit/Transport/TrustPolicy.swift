@@ -113,6 +113,16 @@ public final class TrustStore: Sendable {
         /// The player ID each host was allowed for, when known. Not persisted: discovery and
         /// topology re-establish it every launch before the first request goes out.
         var playerIDs: [String: String] = [:]
+        /// Players whose last contact presented a key that was rejected, so the app can say so.
+        var rejected: Set<String> = []
+        var observers: [UUID: AsyncStream<Set<String>>.Continuation] = [:]
+
+        /// Adds or removes the host's player from `rejected`; returns the observers to notify when the set changed.
+        mutating func mark(host: String, rejected isRejected: Bool) -> [AsyncStream<Set<String>>.Continuation] {
+            guard let playerID = playerIDs[host] else { return [] }
+            let changed = isRejected ? rejected.insert(playerID).inserted : rejected.remove(playerID) != nil
+            return changed ? Array(observers.values) : []
+        }
     }
 
     private let logger = Logger(subsystem: "com.jenswedin.SonosRemote", category: "trust")
@@ -135,32 +145,46 @@ public final class TrustStore: Sendable {
 
     /// Forget a host, its pin and its player; the next contact pins afresh.
     public func revoke(host: String) {
-        let pins = state.withLock { s -> [String: Data] in
+        let (pins, notify, rejected) = state.withLock { s in
+            let notify = s.mark(host: host, rejected: false)
             s.hosts.remove(host)
             s.pins[host] = nil
             s.playerIDs[host] = nil
-            return s.pins
+            return (s.pins, notify, s.rejected)
         }
         pinStore?.save(pins)
+        for observer in notify { observer.yield(rejected) }
+    }
+
+    /// Player IDs whose certificate is currently rejected.
+    public var currentRejectedPlayers: Set<String> { state.withLock { $0.rejected } }
+
+    /// The rejected player IDs now, then every time the set changes.
+    public func rejectedPlayers() -> AsyncStream<Set<String>> {
+        let (stream, continuation) = AsyncStream<Set<String>>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let id = UUID()
+        let current = state.withLock { s in
+            s.observers[id] = continuation
+            return s.rejected
+        }
+        continuation.yield(current)
+        continuation.onTermination = { [weak self] _ in
+            _ = self?.state.withLock { $0.observers.removeValue(forKey: id) }
+        }
+        return stream
     }
 
     /// Trust-on-first-use: an allowed host with no pin records `keyHash`; afterwards the key must match,
     /// unless the certificate's `commonName` names the player allowed at that host (a reissued certificate).
     public func decision(host: String, port: Int, keyHash: Data, commonName: String? = nil) -> TrustDecision {
         guard port == TrustPolicy.speakerPort, TrustPolicy.isLocalSpeakerAddress(host) else { return .reject }
-        let (decision, pins, repinned) = state.withLock { s -> (TrustDecision, [String: Data]?, Bool) in
-            guard s.hosts.contains(host) else { return (.reject, nil, false) }
-            if let pinned = s.pins[host], pinned != keyHash {
-                guard let playerID = s.playerIDs[host], let commonName,
-                      TrustPolicy.playerID(playerID, matchesCommonName: commonName) else { return (.reject, nil, false) }
-                s.pins[host] = keyHash
-                return (.accept, s.pins, true)
-            }
-            if s.pins[host] != nil { return (.accept, nil, false) }
-            s.pins[host] = keyHash
-            return (.accept, s.pins, false)
+        let (decision, pins, repinned, notify, rejected) = state.withLock { s in
+            let (decision, pins, repinned) = Self.decide(&s, host: host, keyHash: keyHash, commonName: commonName)
+            let notify = s.mark(host: host, rejected: decision == .reject)
+            return (decision, pins, repinned, notify, s.rejected)
         }
         if let pins { pinStore?.save(pins) }
+        for observer in notify { observer.yield(rejected) }
         if repinned {
             logger.notice("re-pinned \(host, privacy: .private(mask: .hash)): the speaker reissued its certificate")
         }
@@ -168,6 +192,19 @@ public final class TrustStore: Sendable {
             logger.error("rejected certificate for \(host, privacy: .private(mask: .hash)) on port \(port): key does not match the pinned speaker")
         }
         return decision
+    }
+
+    private static func decide(_ s: inout State, host: String, keyHash: Data, commonName: String?) -> (TrustDecision, [String: Data]?, Bool) {
+        guard s.hosts.contains(host) else { return (.reject, nil, false) }
+        if let pinned = s.pins[host], pinned != keyHash {
+            guard let playerID = s.playerIDs[host], let commonName,
+                  TrustPolicy.playerID(playerID, matchesCommonName: commonName) else { return (.reject, nil, false) }
+            s.pins[host] = keyHash
+            return (.accept, s.pins, true)
+        }
+        if s.pins[host] != nil { return (.accept, nil, false) }
+        s.pins[host] = keyHash
+        return (.accept, s.pins, false)
     }
 
     /// Kept for callers that only need the allow-list (the websocket URL builder, tests).

@@ -65,6 +65,9 @@ enum SnapshotReducer {
                 group.playerIDs.removeAll { $0 == playerID }
                 return group.playerIDs.isEmpty ? nil : group
             }
+
+        case .untrustedPlayers(let ids):
+            next.untrustedPlayerIDs = ids
         }
         return next
     }

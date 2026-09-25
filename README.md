@@ -18,7 +18,7 @@ The app talks to the speakers through Sonos's local Control API, which Sonos doe
 
 ## Updating
 
-The panel shows an "Update available" card when a newer release exists. Click "Copy Homebrew command" and paste it in Terminal:
+The panel shows an "Update available" card when a newer release exists. Click "Update via Homebrew" to copy the upgrade command and paste it in Terminal ("What's new" opens the release notes):
 
     brew update && brew upgrade --cask remote-for-sonos
 

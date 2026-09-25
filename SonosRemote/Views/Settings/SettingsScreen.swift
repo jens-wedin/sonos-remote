@@ -83,6 +83,7 @@ struct SettingsScreen: View {
                         Text(AppVersion.display).font(.callout.monospacedDigit()).foregroundStyle(Color.supporting)
                         if updates.latestKnown != nil {
                             CopyCommandButton(onCopy: { updates.copyCommand() })
+                                .foregroundStyle(Color.primary)
                         }
                     }
                 }
